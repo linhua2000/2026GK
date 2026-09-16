@@ -1,0 +1,36 @@
+version: "4.1"
+name: undefined
+type: ARM
+deviceName: null
+packDir: null
+srcDirs: []
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders: []
+dependenceList: []
+outDir: build
+miscInfo: {}
+targets:
+  Debug:
+    cppPreprocessAttrs:
+      defineList: []
+      incList: []
+      libList: []
+    excludeList: []
+    settings: {}
+    toolchain: GCC
+    toolchainConfigMap:
+      GCC:
+        archExtensions: ""
+        cpuType: Cortex-M3
+        floatingPointHardware: none
+        options: ""
+        scatterFilePath: <YOUR_LINKER_SCRIPT>.lds
+        storageLayout:
+          RAM: []
+          ROM: []
+        useCustomScatterFile: true
+    uploadConfigMap:
+      JLink: null
+    uploader: JLink
