@@ -29,7 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "led.h"
-
+#include "SCServo.h"
 
 /* USER CODE END Includes */
 
@@ -118,6 +118,9 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
+  /* 舵机初始化:使能扭矩并运动到初始位置 */
+  //WritePosEx(1, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
+	//WritePosEx(2, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
 
   /* USER CODE END 2 */
 
@@ -125,14 +128,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  LED_On(1);
-      HAL_Delay(500);
-      LED_Off(1);
-      HAL_Delay(500);
-      LED_Toggle(2);
-	  LED_Toggle(3);
-	  LED_Toggle(4);
-      HAL_Delay(300);
+		LED_On(1);
+		HAL_Delay(500);
+		LED_Off(1);
+		HAL_Delay(500);
+		LED_Toggle(2);
+		WritePosEx(1, 2680, 5, 0);
+		WritePosEx(2, 3560, 5, 0);
+		WritePosEx(3,700,5,0);
+		//LED_Toggle(3);
+	LED_Toggle(4);
+//	HAL_Delay(300);
+      
 	  
     /* USER CODE END WHILE */
 

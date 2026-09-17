@@ -1,4 +1,4 @@
---cpu=Cortex-M4.fp
+--cpu=Cortex-M4.fp.sp
 "f407car\startup_stm32f407xx.o"
 "f407car\main.o"
 "f407car\gpio.o"
@@ -12,7 +12,6 @@
 "f407car\stm32f4xx_hal_msp.o"
 "f407car\stm32f4xx_hal_adc.o"
 "f407car\stm32f4xx_hal_adc_ex.o"
-"f407car\stm32f4xx_ll_adc.o"
 "f407car\stm32f4xx_hal_rcc.o"
 "f407car\stm32f4xx_hal_rcc_ex.o"
 "f407car\stm32f4xx_hal_flash.o"
@@ -35,6 +34,10 @@
 "f407car\stm32f4xx_hal_uart.o"
 "f407car\system_stm32f4xx.o"
 "f407car\led.o"
+"f407car\sms_sts.o"
+"f407car\scs.o"
+"f407car\scservo.o"
+"f407car\uart.o"
 --strict --scatter "F407car\F407car.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
