@@ -30,6 +30,7 @@
 /* USER CODE BEGIN Includes */
 #include "led.h"
 #include "SCServo.h"
+#include "receive.h"
 
 /* USER CODE END Includes */
 
@@ -122,6 +123,9 @@ int main(void)
   //WritePosEx(1, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
 	//WritePosEx(2, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
 
+  /* 视觉串口接收初始化 */
+  Vision_UART_Init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,7 +136,7 @@ int main(void)
 		HAL_Delay(500);
 		LED_Off(1);
 		HAL_Delay(500);
-		LED_Toggle(2);
+		//LED_Toggle(2);
 		WritePosEx(1, 2680, 5, 0);
 		WritePosEx(2, 3560, 5, 0);
 		WritePosEx(3,700,5,0);

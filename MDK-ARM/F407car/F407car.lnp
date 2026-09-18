@@ -34,6 +34,7 @@
 "f407car\stm32f4xx_hal_uart.o"
 "f407car\system_stm32f4xx.o"
 "f407car\led.o"
+"f407car\receive.o"
 "f407car\sms_sts.o"
 "f407car\scs.o"
 "f407car\scservo.o"
