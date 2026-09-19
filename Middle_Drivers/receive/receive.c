@@ -7,7 +7,7 @@
 VisionData_t vision_data = {0};
 
 static uint8_t  rx_byte = 0;             /* 中断接收到的单字节 */
-static uint8_t  rx_buf[FRAME_QR_LEN];    /* 接收缓冲, 取最大帧长 5 字节 */
+static uint8_t  rx_buf[FRAME_MAX_LEN];   /* 接收缓冲, 取最大帧长(抓取 6 字节) */
 static uint8_t  rx_idx = 0;              /* 已填充字节数 */
 static uint8_t  rx_len = 0;              /* 当前帧期望长度, 由帧头决定 */
 static uint32_t rx_last_tick = 0;        /* 最后一字节的 tick */
@@ -55,16 +55,16 @@ static void dispatch_frame(void)
             vision_data.turn_flag = 1;
             break;
         case FRAME_GRAB_HEAD:
-            vision_data.grab_x = (int8_t)rx_buf[1];
-            vision_data.grab_y = (int8_t)rx_buf[2];
+            /* 小端 int16: 低字节在前, 高字节在后 */
+            vision_data.grab_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
+            vision_data.grab_y = (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8));
             vision_data.grab_flag = 1;
             break;
         default:
             break;
     }
 
-    /* 帧尾校验通过, 回 0x01 确认收到 */
-    Vision_Send_Ack();
+    /* 帧尾校验通过, 数据已写入 vision_data, OLED 显示由主循环处理 */
 }
 
 /* 字节级状态机: 空闲找帧头 -> 按帧长填充 -> 收满校验帧尾 */
