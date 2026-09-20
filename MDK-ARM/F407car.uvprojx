@@ -336,7 +336,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;..\Middle_Drivers;..\Middle_Drivers\LED</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../Middle_Drivers/uart1;../Middle_Drivers/encoder;../app;../Middle_Drivers/motor;..\Middle_Drivers\JY61P;..\Middle_Drivers\mailuncontrol</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1279,6 +1279,41 @@
               <FileName>led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Middle_Drivers\LED\led.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\uart1\uart1.c</FilePath>
+            </File>
+            <File>
+              <FileName>encoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\encoder\encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\motor\motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>mailuncontrol.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\mailuncontrol\mailuncontrol.c</FilePath>
+            </File>
+            <File>
+              <FileName>jy61p.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\JY61P\jy61p.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>app</GroupName>
+          <Files>
+            <File>
+              <FileName>control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\app\control.c</FilePath>
             </File>
           </Files>
         </Group>

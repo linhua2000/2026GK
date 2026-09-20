@@ -29,7 +29,12 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "led.h"
-
+#include "uart1.h"
+#include "encoder.h"
+#include "motor.h"
+#include "jy61p.h"
+#include "control.h"
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -45,7 +50,8 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+uint8_t  g_uart3_receivedate = 0;  /* USART3(HWT905) 单字节接收缓冲 */
+uint8_t  g_uart1_receivedate = 0;  /* USART1(蓝牙)   单字节接收缓冲 */
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -94,7 +100,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
   MX_I2C3_Init();
   MX_UART4_Init();
   MX_UART5_Init();
@@ -118,22 +123,84 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
+  
+  UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
+  Encoder_Init();                                 /* 启动四路编码器计数 */
+  Motor_Init();                                   /* 启动四路电机 PWM 输出 */
+ 
+  HAL_TIM_Base_Start_IT(&htim6); //【必须手动加，开启定时器+中断】
+  /* HWT905 九轴陀螺仪（USART3 PD8/PD9，模块波特率 115200）。
+   * 平放时 |A| 应≈1.0g；对不上先查波特率，再查 jy61p.c 的换算系数。
+   * 后续逐字节接收由 HAL_UART_RxCpltCallback 重武装（见 USER CODE BEGIN 4） */
+  HAL_UART_Receive_IT(&huart3, &g_uart3_receivedate, 1);
 
+  /* 蓝牙 PID 调试口（USART1 PA9/PA10，115200）：和上面一样先武装起来，
+   * 每字节进 HAL_UART_RxCpltCallback -> Debug_RxByte()。
+   * 指令与回传格式见 app/control.h */
+  HAL_UART_Receive_IT(&huart1, &g_uart1_receivedate, 1);
+  
+  /* 电机自检：架空车轮后取消下面一行的注释即可运行（约 11 秒后四轮自动停转） */
+  /* Motor_TestRun(); */
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  
+  HAL_Delay(3000);  /* 等待蓝牙连接，避免开机就发一堆垃圾 */
   while (1)
   {
-	  LED_On(1);
-      HAL_Delay(500);
-      LED_Off(1);
-      HAL_Delay(500);
-      LED_Toggle(2);
-	  LED_Toggle(3);
-	  LED_Toggle(4);
-      HAL_Delay(300);
+    uint8_t txbuf[128];
+    int     len;
+
+//	  Motor_Load(1000,1000,1000,1000);
+//    len = sprintf((char *)txbuf,
+//                  "E1:%d  E2:%d "
+//                  "E3:%d  E4:%d\r\n",
+//                  (int)Encoder_GetDelta(ENC_WHEEL1),
+//                  (int)Encoder_GetDelta(ENC_WHEEL2),
+//                  (int)Encoder_GetDelta(ENC_WHEEL3),
+//                  (int)Encoder_GetDelta(ENC_WHEEL4));
+//    UART1_Send_Buf(txbuf, (uint16_t)len);
+
+	  // //轮1
+	  // len = sprintf((char *)txbuf,
+		// 			"%d,%d,%d\r\n",
+		// 			(int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0]);
+	  // UART1_Send_Buf(txbuf, (uint16_t)len);
+
+	  //轮2
+//    len = sprintf((char *)txbuf,
+//          "%d,%d,%d\r\n",
+//          (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1]);
+//    UART1_Send_Buf(txbuf, (uint16_t)len);
+    // //轮3
+    // len = sprintf((char *)txbuf,
+    //       "%d,%d,%d\r\n",
+    //       (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2]);
+    // UART1_Send_Buf(txbuf, (uint16_t)len);
+    //轮4
+    len = sprintf((char *)txbuf,
+          "%d,%d,%d\r\n",
+          (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
+    UART1_Send_Buf(txbuf, (uint16_t)len);
+
+//	   len = sprintf((char *)txbuf,
+//                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
+//                  "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d\r\n",
+//                  (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
+//                  (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
+//                  (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
+//                  (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
+//    UART1_Send_Buf(txbuf, (uint16_t)len);
 	  
+//      Debug_Poll();   /* 20ms 回传 T/E/P，内部自带计时 */
+
+      /* HWT905 示例（要看时取消注释）：数据由 USART3 中断直接填进
+       * Ax/Ay/Az/Gx/Gy/Gz/Roll/Pitch/Yaw。取消注释后请把上面那行 Debug_Poll()
+       * 也一并关掉，否则两者会抢同一条蓝牙口 */
+      /* sprintf((char *)txbuf, "A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f\r\n",
+                 Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
+      UART1_Send_Str(txbuf); */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -187,7 +254,20 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+// 放在USER CODE BEGIN 4这个代码段！！CubeMX重新生成不会删掉这里！
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if( huart == &huart3 )
+    {
+        jy61p_ReceiveData(g_uart3_receivedate);
+        HAL_UART_Receive_IT(&huart3,&g_uart3_receivedate,1);
+    }
+    else if( huart == &huart1 )
+    {
+        Debug_RxByte(g_uart1_receivedate);
+        HAL_UART_Receive_IT(&huart1,&g_uart1_receivedate,1);
+    }
+}
 /* USER CODE END 4 */
 
 /**
