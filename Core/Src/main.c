@@ -122,6 +122,7 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   /* 舵机初始化:使能扭矩并运动到初始位置 */
+	HAL_Delay(50);
   WritePosEx(1, 2680, 5, 0);
   WritePosEx(2, 3560, 5, 0);
   WritePosEx(3, 700, 5, 0);
