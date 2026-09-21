@@ -1,4 +1,6 @@
-f407car/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
+f407car/oled_ui.o: ..\Middle_Drivers\OLED\oled_ui.c \
+  ..\Middle_Drivers\OLED\oled_ui.h ..\Middle_Drivers\OLED\OLED.h \
+  ..\Middle_Drivers\OLED\OLED_Data.h ..\Middle_Drivers\receive\receive.h \
   ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal.h \
   ..\Core\Inc\stm32f4xx_hal_conf.h \
   ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_rcc.h \
@@ -29,10 +31,4 @@ f407car/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_spi.h \
   ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_tim.h \
   ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_tim_ex.h \
-  ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_uart.h \
-  ..\Core\Inc\adc.h ..\Core\Inc\can.h ..\Core\Inc\i2c.h \
-  ..\Core\Inc\spi.h ..\Core\Inc\tim.h ..\Core\Inc\usart.h \
-  ..\Core\Inc\gpio.h ..\Middle_Drivers\LED\led.h ..\SCSLib\SCServo.h \
-  ..\SCSLib\INST.h ..\SCSLib\SCS.h ..\SCSLib\SMS_STS.h \
-  ..\Middle_Drivers\receive\receive.h ..\Middle_Drivers\OLED\OLED.h \
-  ..\Middle_Drivers\OLED\OLED_Data.h ..\Middle_Drivers\OLED\oled_ui.h
+  ..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_uart.h

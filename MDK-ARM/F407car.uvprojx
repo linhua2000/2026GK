@@ -1277,6 +1277,16 @@
               <FileType>5</FileType>
               <FilePath>..\Middle_Drivers\OLED\OLED_Data.h</FilePath>
             </File>
+            <File>
+              <FileName>oled_ui.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\OLED\oled_ui.c</FilePath>
+            </File>
+            <File>
+              <FileName>oled_ui.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Middle_Drivers\OLED\oled_ui.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

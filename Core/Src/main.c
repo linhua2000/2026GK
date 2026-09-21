@@ -32,6 +32,7 @@
 #include "SCServo.h"
 #include "receive.h"
 #include "OLED.h"
+#include "oled_ui.h"
 
 /* USER CODE END Includes */
 
@@ -59,7 +60,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void OLED_ShowVision(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -121,8 +122,9 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   /* 舵机初始化:使能扭矩并运动到初始位置 */
-  //WritePosEx(1, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
-	//WritePosEx(2, 2680, 5, 0);       // ID=1, 位置500, 速度90, 加速度0
+  WritePosEx(1, 2680, 5, 0);
+  WritePosEx(2, 3560, 5, 0);
+  WritePosEx(3, 700, 5, 0);
 
   /* 视觉串口接收初始化 */
   Vision_UART_Init();
@@ -132,32 +134,45 @@ int main(void)
   OLED_ShowString(0, 0, "Waiting...", OLED_6X8);
   OLED_Update();
 
+  /* 非阻塞调度时间戳(毫秒) */
+  uint32_t prev_led   = 0;
+  uint32_t prev_servo = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* 持续刷新 OLED, 实时显示最新收到的视觉数据 */
-    OLED_ShowVision();
-    vision_data.qr_flag = 0;
-    vision_data.track_flag = 0;
-    vision_data.turn_flag = 0;
-    vision_data.grab_flag = 0;
+    uint32_t now = HAL_GetTick();
 
-		LED_On(1);
-		HAL_Delay(500);
-		LED_Off(1);
-		HAL_Delay(500);
-		//LED_Toggle(2);
-		WritePosEx(1, 2680, 5, 0);
-		WritePosEx(2, 3560, 5, 0);
-		WritePosEx(3,700,5,0);
-		//LED_Toggle(3);
-	LED_Toggle(4);
-//	HAL_Delay(300);
-      
-	  
+    /* 视觉来一帧, 才刷新一次 OLED */
+    if (vision_data.qr_flag || vision_data.track_flag || vision_data.turn_flag || vision_data.grab_flag)
+    {
+        OLED_ShowVision();
+        vision_data.qr_flag = 0;
+        vision_data.track_flag = 0;
+        vision_data.turn_flag = 0;
+        vision_data.grab_flag = 0;
+    }
+
+    /* LED1 闪烁: 每 500ms 翻转(亮500ms灭500ms) */
+    if (now - prev_led >= 500)
+    {
+        prev_led = now;
+        LED_Toggle(1);
+    }
+
+    /* 舵机指令 + LED4: 约每 1s 一次 */
+    if (now - prev_servo >= 1000)
+    {
+        prev_servo = now;
+        // WritePosEx(1, 2680, 5, 0);
+        // WritePosEx(2, 3560, 5, 0);
+        // WritePosEx(3, 700, 5, 0);
+        LED_Toggle(4);
+    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -211,33 +226,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/* 把视觉收到的数据刷新到 OLED 显示
- * 用 OLED_ShowHexNum 显示原始字节(十六进制), 不依赖 printf 库, 稳定可靠 */
-void OLED_ShowVision(void)
-{
-    /* 循迹 B6 x y 6B */
-    OLED_ShowString(0, 0, "TR:", OLED_6X8);
-    OLED_ShowHexNum(24, 0, (uint8_t)vision_data.track_x, 2, OLED_6X8);
-    OLED_ShowHexNum(42, 0, (uint8_t)vision_data.track_y, 2, OLED_6X8);
-
-    /* 二维码 A5 x y z 5A */
-    OLED_ShowString(0, 8, "QR:", OLED_6X8);
-    OLED_ShowHexNum(24, 8, (uint8_t)vision_data.qr_x, 2, OLED_6X8);
-    OLED_ShowHexNum(42, 8, (uint8_t)vision_data.qr_y, 2, OLED_6X8);
-    OLED_ShowHexNum(60, 8, (uint8_t)vision_data.qr_z, 2, OLED_6X8);
-
-    /* 抓取 D8 x(int16) y(int16) 8D */
-    OLED_ShowString(0, 16, "GR:", OLED_6X8);
-    OLED_ShowHexNum(24, 16, (uint16_t)vision_data.grab_x, 4, OLED_6X8);
-    OLED_ShowHexNum(54, 16, (uint16_t)vision_data.grab_y, 4, OLED_6X8);
-
-    /* 转弯 C7 0 7C */
-    OLED_ShowString(0, 24, "TN:", OLED_6X8);
-    OLED_ShowHexNum(24, 24, vision_data.turn_flag, 2, OLED_6X8);
-
-    OLED_Update();
-}
 
 /* USER CODE END 4 */
 
