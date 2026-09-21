@@ -336,7 +336,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../Middle_Drivers/uart1;../Middle_Drivers/encoder;../app;../Middle_Drivers/motor;..\Middle_Drivers\JY61P;..\Middle_Drivers\mailuncontrol</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../Middle_Drivers/uart1;../Middle_Drivers/encoder;../app;../Middle_Drivers/motor;..\Middle_Drivers\JY61P;..\Middle_Drivers\mailuncontrol;..\Middle_Drivers\kinematics</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1304,6 +1304,11 @@
               <FileName>jy61p.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Middle_Drivers\JY61P\jy61p.c</FilePath>
+            </File>
+            <File>
+              <FileName>kinematics.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\kinematics\kinematics.c</FilePath>
             </File>
           </Files>
         </Group>

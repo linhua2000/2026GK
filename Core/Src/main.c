@@ -34,6 +34,7 @@
 #include "motor.h"
 #include "jy61p.h"
 #include "control.h"
+#include "kinematics.h"
 #include <stdio.h>
 
 /* USER CODE END Includes */
@@ -127,7 +128,8 @@ int main(void)
   UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
   Encoder_Init();                                 /* 启动四路编码器计数 */
   Motor_Init();                                   /* 启动四路电机 PWM 输出 */
- 
+  Kinematics_Init();
+	
   HAL_TIM_Base_Start_IT(&htim6); //【必须手动加，开启定时器+中断】
   /* HWT905 九轴陀螺仪（USART3 PD8/PD9，模块波特率 115200）。
    * 平放时 |A| 应≈1.0g；对不上先查波特率，再查 jy61p.c 的换算系数。

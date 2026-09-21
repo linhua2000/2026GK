@@ -3,6 +3,7 @@
 #include "encoder.h"
 #include "motor.h"
 #include "mailuncontrol.h"
+#include "kinematics.h"
 #include "uart1.h"
 #include <stdio.h>
 
@@ -92,30 +93,30 @@ void Debug_RxByte(uint8_t b)
     else s_cmd_drop = 1;               /* 超长：整行作废（只丢尾巴会让长行的尾部被误解析） */
 }
 
-/* ================= 20ms 回传 ================= */
-void Debug_Poll(void)
-{
-//    static uint32_t s_tick = 0;
-    uint8_t txbuf[160];
-//    uint32_t now = HAL_GetTick();
-    int len;
+///* ================= 20ms 回传 ================= */
+//void Debug_Poll(void)
+//{
+////    static uint32_t s_tick = 0;
+//    uint8_t txbuf[160];
+////    uint32_t now = HAL_GetTick();
+//    int len;
 
-//    if ((uint32_t)(now - s_tick) < 20U) return;
-//    s_tick = now;
+////    if ((uint32_t)(now - s_tick) < 20U) return;
+////    s_tick = now;
 
-    /* 一次 sprintf 组整行，再 UART1_Send_Buf 一次性发。
-     * 别用 UART1_Send_Str —— 它逐字节调 HAL_UART_Transmit，94 字节=94 次函数调用，
-     * 且每字节都带 100ms 超时。Send_Buf 是单次调用、单次超时。
-     * 全是 %d，不碰 %f（本工程 %f 从未被链接过，会多带几 KB 进来）。 */
-    len = sprintf((char *)txbuf,
-                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
-                  "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d\r\n",
-                  (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
-                  (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
-                  (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
-                  (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
-    UART1_Send_Buf(txbuf, (uint16_t)len);
-}
+//    /* 一次 sprintf 组整行，再 UART1_Send_Buf 一次性发。
+//     * 别用 UART1_Send_Str —— 它逐字节调 HAL_UART_Transmit，94 字节=94 次函数调用，
+//     * 且每字节都带 100ms 超时。Send_Buf 是单次调用、单次超时。
+//     * 全是 %d，不碰 %f（本工程 %f 从未被链接过，会多带几 KB 进来）。 */
+//    len = sprintf((char *)txbuf,
+//                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
+//                  "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d\r\n",
+//                  (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
+//                  (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
+//                  (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
+//                  (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
+//    UART1_Send_Buf(txbuf, (uint16_t)len);
+//}
 
 /* ================= 5ms 闭环 ================= */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -124,15 +125,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
         Encoder_Update();   /* 5ms：读取四路编码器增量（脉冲/5ms） */
 
+        Set_Vel(100, 0, 0);                      // mm/s, mm/s, rad/s —— 只存不算
+        Exp_Speed_Cal();                         // 解算 -> exp_wheel_rpm (RPM)
+
+        int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
+        p1 = Velocity_Wheel1(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_1),
+                            (int)Encoder_GetDelta(ENC_WHEEL1));
+        p2 = Velocity_Wheel2(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_2),
+                            (int)Encoder_GetDelta(ENC_WHEEL2));
+        p3 = Velocity_Wheel3(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_3),
+                            (int)Encoder_GetDelta(ENC_WHEEL3));
+        p4 = Velocity_Wheel4(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_4),
+                            (int)Encoder_GetDelta(ENC_WHEEL4));
+        /* 反馈轮速：只写 kinematics.fb_wheel_rpm 这个普通结构体，不驱动任何电机。
+         * 注意下面那条 PID 通路并不用它 —— Velocity_WheelN 的 Target 和 encoder
+         * 都是脉冲/5ms，两边单位一致，直接对着原始增量比。这里纯粹给遥测/观察用。
+         * 四路同向为正（分配表.md「编码器极性备注」），故无需按轮符号。 */
+        // kinematics.fb_wheel_rpm.motor_1 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL1));
+        // kinematics.fb_wheel_rpm.motor_2 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL2));
+        // kinematics.fb_wheel_rpm.motor_3 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL3));
+        // kinematics.fb_wheel_rpm.motor_4 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL4));
+
         /* 四路速度环闭环。目标来自蓝牙 Debug_Target[]，单位脉冲/5ms。
          * 增益是 mailuncontrol.h 里的宏 —— 现在是 0.0f，所以 p1..p4 恒为 0、电机不动。
          * 恢复时把下面整块一起取消注释：声明也在块里。只放开 Motor_Load 那一行的话，
          * p1..p4 就是未初始化变量，中断会拿栈上残值直接驱动电机。 */
-        int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
-        p1 = Velocity_Wheel1((float)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1));
-        p2 = Velocity_Wheel2((float)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2));
-        p3 = Velocity_Wheel3((float)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3));
-        p4 = Velocity_Wheel4((float)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4));
+        // int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
+        // p1 = Velocity_Wheel1((float)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1));
+        // p2 = Velocity_Wheel2((float)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2));
+        // p3 = Velocity_Wheel3((float)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3));
+        // p4 = Velocity_Wheel4((float)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4));
+
+
 
         Debug_Pwm[0] = p1;              /* 存起来给主循环回传 */
         Debug_Pwm[1] = p2;
