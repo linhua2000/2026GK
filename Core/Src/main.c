@@ -33,6 +33,7 @@
 #include "receive.h"
 #include "OLED.h"
 #include "oled_ui.h"
+#include "PID.h"
 
 /* USER CODE END Includes */
 
@@ -123,12 +124,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /* 舵机初始化:使能扭矩并运动到初始位置 */
 	HAL_Delay(50);
-  WritePosEx(1, 2680, 5, 0);
-  WritePosEx(2, 3560, 5, 0);
-  WritePosEx(3, 700, 5, 0);
+  
 
   /* 视觉串口接收初始化 */
   Vision_UART_Init();
+
+  /* XY 舵机 PID 控制初始化 */
+  Servo_PID_Init();
 
   /* OLED 初始化 */
   OLED_Init();
@@ -138,6 +140,7 @@ int main(void)
   /* 非阻塞调度时间戳(毫秒) */
   uint32_t prev_led   = 0;
   uint32_t prev_servo = 0;
+  uint32_t prev_oled  = 0;
 
   /* USER CODE END 2 */
 
@@ -145,16 +148,19 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    /* XY 舵机: 每来一帧抓取数据算一次 PID(须在 OLED 块之前) */
+    Servo_PID_Update();
+
     uint32_t now = HAL_GetTick();
 
-    /* 视觉来一帧, 才刷新一次 OLED */
-    if (vision_data.qr_flag || vision_data.track_flag || vision_data.turn_flag || vision_data.grab_flag)
+    /* OLED 每 200ms 刷新一次(显示最新视觉数据), 不再和 PID 抢 grab_flag */
+    if (now - prev_oled >= 200)
     {
+        prev_oled = now;
         OLED_ShowVision();
         vision_data.qr_flag = 0;
         vision_data.track_flag = 0;
         vision_data.turn_flag = 0;
-        vision_data.grab_flag = 0;
     }
 
     /* LED1 闪烁: 每 500ms 翻转(亮500ms灭500ms) */
@@ -162,6 +168,7 @@ int main(void)
     {
         prev_led = now;
         LED_Toggle(1);
+  WritePosEx(2, 1600, 5, 0);
     }
 
     /* 舵机指令 + LED4: 约每 1s 一次 */

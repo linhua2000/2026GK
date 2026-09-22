@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../SCSLib;..\Middle_Drivers\receive;..\Middle_Drivers\OLED</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../SCSLib;..\Middle_Drivers\receive;..\Middle_Drivers\OLED;..\Middle_Drivers\PID</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1286,6 +1286,16 @@
               <FileName>oled_ui.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Middle_Drivers\OLED\oled_ui.h</FilePath>
+            </File>
+            <File>
+              <FileName>PID.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\PID\PID.c</FilePath>
+            </File>
+            <File>
+              <FileName>PID.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Middle_Drivers\PID\PID.h</FilePath>
             </File>
           </Files>
         </Group>
