@@ -122,10 +122,6 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
-  /* 舵机初始化:使能扭矩并运动到初始位置 */
-	HAL_Delay(50);
-  
-
   /* 视觉串口接收初始化 */
   Vision_UART_Init();
 
@@ -153,7 +149,7 @@ int main(void)
 
     uint32_t now = HAL_GetTick();
 
-    /* OLED 每 200ms 刷新一次(显示最新视觉数据), 不再和 PID 抢 grab_flag */
+    /* OLED 每 200ms 刷新一次(显示最新视觉数据) */
     if (now - prev_oled >= 200)
     {
         prev_oled = now;
@@ -168,7 +164,7 @@ int main(void)
     {
         prev_led = now;
         LED_Toggle(1);
-  WritePosEx(2, 1600, 5, 0);
+        WritePosEx(2, 1600, 5, 0);
     }
 
     /* 舵机指令 + LED4: 约每 1s 一次 */

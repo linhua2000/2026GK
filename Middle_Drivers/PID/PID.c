@@ -17,7 +17,7 @@
 #define SERVO_X_INIT 700    /* X轴开机位置(现测值, 可调) */
 #define SERVO_Y_INIT 1950   /* Y轴中心 (1180+2680)/2, 可调 */
 
-#define SERVO_SPEED  10      /* 沿用现有速度, 可调 */
+#define SERVO_SPEED  25      /* 沿用现有速度, 可调 */
 #define SERVO_ACC    0
 
 /* ============ 通用 PID(模仿旧工程) ============ */
@@ -78,8 +78,8 @@ void Servo_PID_Init(void)
     EnableTorque(3, 1);
 
     /* Kp/Ki/Kd 现场调; 输出=每帧位置增量, 限幅 ±50 */
-    Control_PID_Init(&pid_control_x, 30.0f, 0.0f, 0.0f, -5000.0f, 5000.0f);
-    Control_PID_Init(&pid_control_y, 10.0f, 0.0f, 0.0f, -5000.0f, 5000.0f);
+    Control_PID_Init(&pid_control_x, -0.3f, 0.0f, 0.0f, -5000.0f, 5000.0f);
+    Control_PID_Init(&pid_control_y, -0.1f, 0.0f, 0.0f, -5000.0f, 5000.0f);
 
     servo_pos_x = SERVO_X_INIT;
     servo_pos_y = SERVO_Y_INIT;
@@ -91,18 +91,18 @@ void Servo_PID_Init(void)
 void Servo_PID_Update(void)
 {
     if (!vision_data.grab_flag) return;
-    vision_data.grab_flag = 0;   /* 消费本帧, 不再交给 OLED 块清(消除竞态) */
+    vision_data.grab_flag = 0;
 
     /* X轴: grab_x -> 舵机3 */
     PID_Compute(&pid_control_x, (float)vision_data.grab_x);
-    servo_pos_x += pid_control_x.output;   /* 方向不对就把 Kp/Ki 取反 */
+    servo_pos_x += pid_control_x.output;  
     if (servo_pos_x < SERVO_X_MIN) servo_pos_x = SERVO_X_MIN;
     if (servo_pos_x > SERVO_X_MAX) servo_pos_x = SERVO_X_MAX;
-    WritePosEx(3, (int16_t)servo_pos_x, SERVO_SPEED, SERVO_ACC);
+    WritePosEx(SERVO_X_ID, (int16_t)servo_pos_x, SERVO_SPEED, SERVO_ACC);
 
     /* Y轴: grab_y -> 舵机1 */
     PID_Compute(&pid_control_y, (float)vision_data.grab_y);
-    servo_pos_y += pid_control_y.output;   /* 方向不对就把 Kp/Ki 取反 */
+    servo_pos_y += pid_control_y.output;   
     if (servo_pos_y < SERVO_Y_MIN) servo_pos_y = SERVO_Y_MIN;
     if (servo_pos_y > SERVO_Y_MAX) servo_pos_y = SERVO_Y_MAX;
     WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED, SERVO_ACC);

@@ -29,7 +29,7 @@ static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSi
 /* 把视觉收到的数据刷新到 OLED 显示 */
 void OLED_ShowVision(void)
 {
-    OLED_Clear();  /* 先清空显存, 避免残留上一帧或 "Waiting..." 的字符 */
+    OLED_Clear(); 
 
     /* 抓取 D8 x(int16) y(int16) 8D, 坐标为相对画面中心的误差 */
     OLED_ShowString(0, 0, "GR:", OLED_6X8);
