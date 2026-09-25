@@ -65,4 +65,10 @@ void Vision_UART_Init(void);
 /* 收到一帧后回一个字节 0x01 给视觉, 用于测试确认 */
 void Vision_Send_Ack(void);
 
+/* 抓完球转身后, 通知视觉切桶识别: D8 01 8D */
+void Vision_Send_Switch_Bucket(void);
+
+/* 放完球, 通知视觉完成: D8 02 8D */
+void Vision_Send_Release_Done(void);
+
 #endif /* __RECEIVE_H */

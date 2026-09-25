@@ -141,6 +141,25 @@ void Vision_Send_Ack(void)
     HAL_UART_Transmit(&huart4, &ack, 1, 10);
 }
 
+/* 发一帧 D8 cmd 8D 给视觉(帧头尾复用抓取帧) */
+static void vision_send_grab(uint8_t cmd)
+{
+    uint8_t frame[3] = {FRAME_GRAB_HEAD, cmd, FRAME_GRAB_TAIL};
+    HAL_UART_Transmit(&huart4, frame, 3, 10);
+}
+
+/* 抓完球转身后, 通知视觉切桶识别: D8 01 8D */
+void Vision_Send_Switch_Bucket(void)
+{
+    vision_send_grab(0x01);
+}
+
+/* 放完球, 通知视觉完成: D8 02 8D */
+void Vision_Send_Release_Done(void)
+{
+    vision_send_grab(0x02);
+}
+
 /* 注意: UART4 的中断入口 UART4_IRQHandler 已在 stm32f4xx_it.c 中定义,
  * 这里无需重复定义。 */
 
