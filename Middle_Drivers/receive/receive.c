@@ -134,6 +134,14 @@ void Vision_UART_Init(void)
     HAL_UART_Receive_IT(&huart4, &rx_byte, 1);
 }
 
+/* UART4 中断回调: 喂入收到的字节并重新武装接收中断。
+ * 由 main.c 的 HAL_UART_RxCpltCallback 在 huart==&huart4 时调用。 */
+void Vision_UART_RxCpltCallback(void)
+{
+    feed_byte(rx_byte);
+    HAL_UART_Receive_IT(&huart4, &rx_byte, 1);
+}
+
 /* 回一个字节 0x01 给视觉, 表示收到一帧 (测试用) */
 void Vision_Send_Ack(void)
 {
@@ -163,11 +171,5 @@ void Vision_Send_Release_Done(void)
 /* 注意: UART4 的中断入口 UART4_IRQHandler 已在 stm32f4xx_it.c 中定义,
  * 这里无需重复定义。 */
 
-/* 接收完成回调: 喂状态机并重新装载接收 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-    if (huart == &huart4) {
-        feed_byte(rx_byte);
-        HAL_UART_Receive_IT(&huart4, &rx_byte, 1);
-    }
-}
+
+

@@ -62,6 +62,9 @@ extern VisionData_t vision_data;
 /* 启动视觉串口接收中断, 主程序初始化时调用一次 */
 void Vision_UART_Init(void);
 
+/* UART4 接收完成回调: 喂入字节并重新武装中断 (由 main.c 调用) */
+void Vision_UART_RxCpltCallback(void);
+
 /* 收到一帧后回一个字节 0x01 给视觉, 用于测试确认 */
 void Vision_Send_Ack(void);
 

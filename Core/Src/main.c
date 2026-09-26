@@ -333,6 +333,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         Debug_RxByte(g_uart1_receivedate);
         HAL_UART_Receive_IT(&huart1,&g_uart1_receivedate,1);
     }
+		 else if (huart == &huart4)
+    {
+        Vision_UART_RxCpltCallback();
+    }
 }
 /* USER CODE END 4 */
 
