@@ -4,7 +4,7 @@
 /* 视觉串口: UART4 (PC10 TX / PC11 RX) */
 #define VISION_ACK_BYTE 0x01   /* 收到一帧后回给视觉的确认字节 */
 
-VisionData_t vision_data = {0};
+volatile VisionData_t vision_data = {0};
 
 static uint8_t  rx_byte = 0;             /* 中断接收到的单字节 */
 static uint8_t  rx_buf[FRAME_MAX_LEN];   /* 接收缓冲, 取最大帧长(抓取 6 字节) */
@@ -58,6 +58,7 @@ static void dispatch_frame(void)
             /* 小端 int16: 低字节在前, 高字节在后 */
             vision_data.grab_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
             vision_data.grab_y = (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8));
+            vision_data.grab_dist = (int16_t)(rx_buf[5] | ((uint16_t)rx_buf[6] << 8));
             vision_data.grab_flag = 1;
             break;
         default:

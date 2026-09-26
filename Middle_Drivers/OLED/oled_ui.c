@@ -51,5 +51,9 @@ void OLED_ShowVision(void)
     OLED_ShowString(0, 24, "TN:", OLED_6X8);
     OLED_ShowHexNum(24, 24, vision_data.turn_flag, 2, OLED_6X8);
 
+    /* 距离 D8 ... d 8D */
+    OLED_ShowString(0, 32, "DI:", OLED_6X8);
+    OLED_ShowSigned(24, 32, vision_data.grab_dist, OLED_6X8);
+
     OLED_Update();
 }

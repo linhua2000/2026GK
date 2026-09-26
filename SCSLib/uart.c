@@ -29,11 +29,11 @@ int16_t Uart_Read(void)
 	}
 }
 /*---------------
-使用UART4作为舵机串口
-端口映射(TX)PC10/(RX)PC11
+舵机走 USART2 (PA2 TX / PA3 RX)
+注意: UART4 (PC10/PC11) 是视觉串口, 不要搞混
 ------------------*/
 
-extern UART_HandleTypeDef huart2;//舵机走UART4
+extern UART_HandleTypeDef huart2;//舵机走 USART2
 
 #define UART_TX_TIMEOUT_MS 20U
 

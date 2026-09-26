@@ -254,7 +254,6 @@ int main(void)
     {
         prev_led = now;
         LED_Toggle(1);
-        WritePosEx(2, 1600, 5, 0);
     }
 
     /* 舵机指令 + LED4: 约每 1s 一次 */
