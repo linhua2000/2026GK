@@ -125,7 +125,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
         Encoder_Update();   /* 5ms：读取四路编码器增量（脉冲/5ms） */
 
-        Set_Vel(100, 0, 0);                      // mm/s, mm/s, rad/s —— 只存不算
+        Set_Vel(0, -0, 0.60 );                      // mm/s, mm/s, rad/s —— 只存不算
         Exp_Speed_Cal();                         // 解算 -> exp_wheel_rpm (RPM)
 
         int p1 = 0, p2 = 0, p3 = 0, p4 = 0;

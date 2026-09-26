@@ -123,6 +123,7 @@ int main(void)
   MX_SPI2_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   
   UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
@@ -148,21 +149,31 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   
+  
+   LED_On(1);
+   LED_On(2);
+   LED_On(3);
+   LED_On(4);
   HAL_Delay(3000);  /* 等待蓝牙连接，避免开机就发一堆垃圾 */
+   LED_Off(1);
+   LED_Off(2);
+   LED_Off(3);
+   LED_Off(4);
   while (1)
   {
     uint8_t txbuf[128];
     int     len;
-
-//	  Motor_Load(1000,1000,1000,1000);
-//    len = sprintf((char *)txbuf,
-//                  "E1:%d  E2:%d "
-//                  "E3:%d  E4:%d\r\n",
-//                  (int)Encoder_GetDelta(ENC_WHEEL1),
-//                  (int)Encoder_GetDelta(ENC_WHEEL2),
-//                  (int)Encoder_GetDelta(ENC_WHEEL3),
-//                  (int)Encoder_GetDelta(ENC_WHEEL4));
-//    UART1_Send_Buf(txbuf, (uint16_t)len);
+	
+//	  Motor_Load(0,0,100,0);
+//	  Motor_Load(100,-100,+100,-100);
+//   len = sprintf((char *)txbuf,
+//                 "E1:%d  E2:%d "
+//                 "E3:%d  E4:%d\r\n",
+//                 (int)Encoder_GetDelta(ENC_WHEEL1),
+//                 (int)Encoder_GetDelta(ENC_WHEEL2),
+//                 (int)Encoder_GetDelta(ENC_WHEEL3),
+//                 (int)Encoder_GetDelta(ENC_WHEEL4));
+//   UART1_Send_Buf(txbuf, (uint16_t)len);
 
 	  // //轮1
 	  // len = sprintf((char *)txbuf,
@@ -170,21 +181,21 @@ int main(void)
 		// 			(int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0]);
 	  // UART1_Send_Buf(txbuf, (uint16_t)len);
 
-	  //轮2
-//    len = sprintf((char *)txbuf,
-//          "%d,%d,%d\r\n",
-//          (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1]);
-//    UART1_Send_Buf(txbuf, (uint16_t)len);
+	  // //轮2
+    // len = sprintf((char *)txbuf,
+    //       "%d,%d,%d\r\n",
+    //       (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1]);
+    // UART1_Send_Buf(txbuf, (uint16_t)len);
     // //轮3
     // len = sprintf((char *)txbuf,
     //       "%d,%d,%d\r\n",
     //       (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2]);
     // UART1_Send_Buf(txbuf, (uint16_t)len);
-    //轮4
-    len = sprintf((char *)txbuf,
-          "%d,%d,%d\r\n",
-          (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
-    UART1_Send_Buf(txbuf, (uint16_t)len);
+//    //轮4
+//    len = sprintf((char *)txbuf,
+//          "%d,%d,%d\r\n",
+//          (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
+//    UART1_Send_Buf(txbuf, (uint16_t)len);
 
 //	   len = sprintf((char *)txbuf,
 //                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "

@@ -9,7 +9,7 @@ void LED_On(uint8_t led_num)
     switch(led_num)
     {
         case 1:
-            HAL_GPIO_WritePin(LED1_PORT, LED1_PIN, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(LED1_PORT, LED1_PIN, GPIO_PIN_SET);
             break;
         case 2:
             HAL_GPIO_WritePin(LED2_PORT, LED2_PIN, GPIO_PIN_SET);
@@ -30,7 +30,7 @@ void LED_Off(uint8_t led_num)
     switch(led_num)
     {
         case 1:
-            HAL_GPIO_WritePin(LED1_PORT, LED1_PIN, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(LED1_PORT, LED1_PIN, GPIO_PIN_RESET);
             break;
         case 2:
             HAL_GPIO_WritePin(LED2_PORT, LED2_PIN, GPIO_PIN_RESET);
