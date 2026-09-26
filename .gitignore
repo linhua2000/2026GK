@@ -13,3 +13,14 @@
 # eide template
 *.ept
 *.eide-template
+
+# ---- 只留本地、不上传 ----
+CLAUDE.md
+分配表.md
+.claude/
+.vscode/
+
+# ---- Keil 构建产物 ----
+MDK-ARM/F407car/
+MDK-ARM/*.uvguix.*
+MDK-ARM/*.lst
