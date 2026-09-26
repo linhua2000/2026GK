@@ -36,6 +36,11 @@
 #include "control.h"
 #include "kinematics.h"
 #include <stdio.h>
+#include "SCServo.h"
+#include "receive.h"
+#include "OLED.h"
+#include "oled_ui.h"
+#include "PID.h"
 
 /* USER CODE END Includes */
 
@@ -136,6 +141,21 @@ int main(void)
    * 平放时 |A| 应≈1.0g；对不上先查波特率，再查 jy61p.c 的换算系数。
    * 后续逐字节接收由 HAL_UART_RxCpltCallback 重武装（见 USER CODE BEGIN 4） */
   HAL_UART_Receive_IT(&huart3, &g_uart3_receivedate, 1);
+  /* 视觉串口接收初始化 */
+  Vision_UART_Init();
+
+  /* XY 舵机 PID 控制初始化 */
+  Servo_PID_Init();
+
+  /* OLED 初始化 */
+  OLED_Init();
+  OLED_ShowString(0, 0, "Waiting...", OLED_6X8);
+  OLED_Update();
+
+  /* 非阻塞调度时间戳(毫秒) */
+  uint32_t prev_led   = 0;
+  uint32_t prev_servo = 0;
+  uint32_t prev_oled  = 0;
 
   /* 蓝牙 PID 调试口（USART1 PA9/PA10，115200）：和上面一样先武装起来，
    * 每字节进 HAL_UART_RxCpltCallback -> Debug_RxByte()。
@@ -214,6 +234,39 @@ int main(void)
       /* sprintf((char *)txbuf, "A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f\r\n",
                  Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
       UART1_Send_Str(txbuf); */
+    /* XY 舵机: 每来一帧抓取数据算一次 PID(须在 OLED 块之前) */
+    Servo_PID_Update();
+
+    uint32_t now = HAL_GetTick();
+
+    /* OLED 每 200ms 刷新一次(显示最新视觉数据) */
+    if (now - prev_oled >= 200)
+    {
+        prev_oled = now;
+        OLED_ShowVision();
+        vision_data.qr_flag = 0;
+        vision_data.track_flag = 0;
+        vision_data.turn_flag = 0;
+    }
+
+    /* LED1 闪烁: 每 500ms 翻转(亮500ms灭500ms) */
+    if (now - prev_led >= 500)
+    {
+        prev_led = now;
+        LED_Toggle(1);
+        WritePosEx(2, 1600, 5, 0);
+    }
+
+    /* 舵机指令 + LED4: 约每 1s 一次 */
+    if (now - prev_servo >= 1000)
+    {
+        prev_servo = now;
+        // WritePosEx(1, 2680, 5, 0);
+        // WritePosEx(2, 3560, 5, 0);
+        // WritePosEx(3, 700, 5, 0);
+        LED_Toggle(4);
+    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
