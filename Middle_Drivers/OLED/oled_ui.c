@@ -1,6 +1,7 @@
 #include "oled_ui.h"
 #include "OLED.h"
 #include "receive.h"
+#include "jy61p.h"
 
 /* 显示带符号十进制数(无前导零), 如 +5 / -640 */
 static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSize)
@@ -54,6 +55,51 @@ void OLED_ShowVision(void)
     /* 距离 D8 ... d 8D */
     OLED_ShowString(0, 32, "DI:", OLED_6X8);
     OLED_ShowSigned(24, 32, vision_data.grab_dist, OLED_6X8);
+
+    OLED_Update();
+}
+
+/* 显示带符号小数(无前导零, 固定小数位), 如 +12.34 / -5.67 / +180.00 */
+static void OLED_ShowSignedFloat(int16_t X, int16_t Y, float Number, uint8_t FraDigits, uint8_t FontSize)
+{
+    uint32_t scale = 1, abs_scaled, int_part, fra_part;
+    int32_t  scaled;
+    uint8_t  i, len = 0, digits[8];
+
+    for (i = 0; i < FraDigits; i++) scale *= 10;
+    scaled = (Number >= 0) ? (int32_t)(Number * scale + 0.5f)
+                           : (int32_t)(Number * scale - 0.5f);      /* 四舍五入 */
+
+    OLED_ShowChar(X, Y, (scaled < 0) ? '-' : '+', FontSize);
+    X += FontSize;
+
+    abs_scaled = (scaled < 0) ? (uint32_t)(-scaled) : (uint32_t)scaled;
+    int_part   = abs_scaled / scale;
+    fra_part   = abs_scaled % scale;
+
+    if (int_part == 0) digits[len++] = 0;                          /* 整数部分无前导零 */
+    while (int_part > 0) { digits[len++] = int_part % 10; int_part /= 10; }
+    for (i = len; i > 0; i--) { OLED_ShowChar(X, Y, digits[i - 1] + '0', FontSize); X += FontSize; }
+
+    OLED_ShowChar(X, Y, '.', FontSize); X += FontSize;
+    OLED_ShowNum(X, Y, fra_part, FraDigits, FontSize);             /* ShowNum 自动补前导零 */
+}
+
+/* 把陀螺仪姿态角 Roll/Pitch/Yaw 刷新到 OLED 显示 */
+void OLED_ShowGyro(void)
+{
+    OLED_Clear();
+
+    OLED_ShowString(0,  0, "GYRO", OLED_6X8);
+
+    OLED_ShowString(0, 16, "Roll :", OLED_6X8);
+    OLED_ShowSignedFloat(48, 16, Roll, 2, OLED_6X8);
+
+    OLED_ShowString(0, 32, "Pitch:", OLED_6X8);
+    OLED_ShowSignedFloat(48, 32, Pitch, 2, OLED_6X8);
+
+    OLED_ShowString(0, 48, "Yaw  :", OLED_6X8);
+    OLED_ShowSignedFloat(48, 48, Yaw, 2, OLED_6X8);
 
     OLED_Update();
 }

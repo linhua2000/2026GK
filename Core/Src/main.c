@@ -21,7 +21,6 @@
 #include "adc.h"
 #include "can.h"
 #include "i2c.h"
-#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -125,7 +124,6 @@ int main(void)
   MX_TIM10_Init();
   MX_TIM11_Init();
   MX_TIM12_Init();
-  MX_SPI2_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
   MX_I2C1_Init();
@@ -137,7 +135,7 @@ int main(void)
   Kinematics_Init();
 	
   HAL_TIM_Base_Start_IT(&htim6); //【必须手动加，开启定时器+中断】
-  /* HWT905 九轴陀螺仪（USART3 PD8/PD9，模块波特率 115200）。
+  /* HWT905 九轴陀螺仪（USART3 PB10/PB11，模块波特率 115200）。
    * 平放时 |A| 应≈1.0g；对不上先查波特率，再查 jy61p.c 的换算系数。
    * 后续逐字节接收由 HAL_UART_RxCpltCallback 重武装（见 USER CODE BEGIN 4） */
   HAL_UART_Receive_IT(&huart3, &g_uart3_receivedate, 1);
@@ -239,11 +237,11 @@ int main(void)
 
     uint32_t now = HAL_GetTick();
 
-    /* OLED 每 200ms 刷新一次(显示最新视觉数据) */
+    /* OLED 每 200ms 刷新一次(显示陀螺仪姿态角) */
     if (now - prev_oled >= 200)
     {
         prev_oled = now;
-        OLED_ShowVision();
+        OLED_ShowGyro();
         vision_data.qr_flag = 0;
         vision_data.track_flag = 0;
         vision_data.turn_flag = 0;
@@ -335,6 +333,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		 else if (huart == &huart4)
     {
         Vision_UART_RxCpltCallback();
+    }
+}
+
+/* 串口出错(溢出/帧错误/噪声)时 HAL 调用这里。默认是空实现、且不会重新武装接收，
+ * 出错一次后 USART3 就永久停摆——表现就是"读数卡住, 只有 reset 才恢复"。
+ * 这里清掉错误标志并重新启动接收即可自愈。 */
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == &huart3)
+    {
+        __HAL_UART_CLEAR_OREFLAG(huart);      /* 清溢出 ORE (内部读 SR 再读 DR) */
+        __HAL_UART_CLEAR_FEFLAG(huart);       /* 清帧错误 FE */
+        __HAL_UART_CLEAR_NEFLAG(huart);       /* 清噪声错误 NE */
+        HAL_UART_Receive_IT(&huart3, &g_uart3_receivedate, 1);
+    }
+    else if (huart == &huart1)
+    {
+        __HAL_UART_CLEAR_OREFLAG(huart);
+        HAL_UART_Receive_IT(&huart1, &g_uart1_receivedate, 1);
     }
 }
 /* USER CODE END 4 */
