@@ -182,7 +182,7 @@ int main(void)
     uint8_t txbuf[128];
     int     len;
 	
-//	  Motor_Load(0,0,100,0);
+//	  Motor_Load(100,0,0,0);
 //	  Motor_Load(100,-100,+100,-100);
 //   len = sprintf((char *)txbuf,
 //                 "E1:%d  E2:%d "

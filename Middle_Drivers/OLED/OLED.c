@@ -80,7 +80,7 @@
  */
 uint8_t OLED_DisplayBuf[8][128];
 
-extern I2C_HandleTypeDef hi2c3;
+extern I2C_HandleTypeDef hi2c1;
 /*********************全局变量*/
 
 /*引脚配置*********************/
@@ -117,7 +117,7 @@ void OLED_WriteCommand(uint8_t Command)
 {
     uint8_t cmd = Command;
     // 0x78是OLED的7位地址左移1位后的结果，超时100ms
-    HAL_I2C_Mem_Write(&hi2c3, 0x78, 0x00, I2C_MEMADD_SIZE_8BIT, &cmd, 1, 100);
+    HAL_I2C_Mem_Write(&hi2c1, 0x78, 0x00, I2C_MEMADD_SIZE_8BIT, &cmd, 1, 100);
 }
 
 /**
@@ -128,7 +128,7 @@ void OLED_WriteCommand(uint8_t Command)
  */
 void OLED_WriteData(uint8_t *Data, uint8_t Count)
 {
-    HAL_I2C_Mem_Write(&hi2c3, 0x78, 0x40, I2C_MEMADD_SIZE_8BIT, Data, Count, 100);
+    HAL_I2C_Mem_Write(&hi2c1, 0x78, 0x40, I2C_MEMADD_SIZE_8BIT, Data, Count, 100);
 }
 
 /*********************通信协议*/
@@ -201,7 +201,7 @@ void OLED_SetCursor(uint8_t Page, uint8_t X)
     /*因为1.3寸的OLED驱动芯片（SH1106）有132列*/
     /*屏幕的起始列接在了第2列，而不是第0列*/
     /*所以需要将X加2，才能正常显示*/
-    	//X += 2;
+    	X += 2;
 
     /*通过指令设置页地址和列地址*/
     OLED_WriteCommand(0xB0 | Page);              // 设置页位置
