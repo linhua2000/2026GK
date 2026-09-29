@@ -39,24 +39,24 @@ int Velocity_Wheel4(float Target, int encoder);
  * 反馈取 odometry.x / .y / .theta，返回【速度指令】，喂 Set_Vel(vx, vy, ω)。
  * 后面接的是现成的 Exp_Speed_Cal -> 轮速环 -> Motor_Load，本模块不碰电机。
  *
- * 单位：Pos_X / Pos_Y  误差 mm  -> 返回 mm/s
- *       Pos_Yaw       误差 deg -> 返回 rad/s（函数内已乘 DEG2RAD）
- * 三个环的 Kp 单位统一是 1/s。全部带 f 后缀：F407 只有单精度 FPU，
+ * 单位：Pos_X / Pos_Y  误差 mm  -> 返回 mm/s，Kp 单位 1/s
+ *       Pos_Yaw       误差 deg -> 返回 rad/s，Kp 单位 rad/(s·deg)
+ * 三个环的 Kp 量纲不同，数值别横向比。全部带 f 后缀：F407 只有单精度 FPU，
  * 不带 f 会被提升成 double 走软件模拟（同本文件上面 Velocity_Kp 那条注释）。
  *
  * 调参顺序：先只给 Kp（Ki 清 0），加到响应够快、略有超调，再退回 60~80%；
  * 然后加 Ki，从 Kp 的 1/20 ~ 1/50 起。三个一起调会定位不出问题源。
  *
  * 注意：调用周期直接决定 Ki 和积分限幅的量级，下面是按「5ms 调一次」估的。 */
-#define Pos_Kp_X      2.0f      /* 1/s：100mm 误差 -> 100mm/s */
+#define Pos_Kp_X      2.0f      /* 1/s：100mm 误差 -> 200mm/s */
 #define Pos_Ki_X      0.02f
 #define Pos_Kp_Y      2.0f
 #define Pos_Ki_Y      0.02f
-#define Pos_Kp_Yaw    0.07f      /* 1/s：10deg 误差 -> 0.87rad/s ≈ 50deg/s */
+#define Pos_Kp_Yaw    0.07f      /* rad/(s·deg)：10deg 误差 -> 0.7rad/s ≈ 40deg/s；约 14deg 顶到 Pos_W_Max */
 #define Pos_Ki_Yaw    0.0f
 
-/* 积分累计量限幅（单位：mm·拍 / rad·拍）。yaw 单独给 —— 误差换成 rad 后数值比 mm
- * 小一个量级，共用同一个值会让积分项顶到输出上限。 */
+/* 积分累计量限幅（单位：mm·拍 / deg·拍）。yaw 单独给 —— 误差是 deg、x/y 是 mm，
+ * 两者量级差得多，共用同一个值会让积分项顶到输出上限。 */
 #define Pos_I_Limit_XY   200.0f
 #define Pos_I_Limit_Yaw  5.0f
 

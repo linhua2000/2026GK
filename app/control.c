@@ -129,11 +129,13 @@ void Debug_RxByte(uint8_t b)
 //}
 
 /* ================= 里程计路径状态机 =================
- * 按 odometry.x/y 走一条 10 段阶梯：每段给一个固定车体速度，走够距离就停、原地等三秒、
- * 再换下一段。只在 TIM6 的 5ms 中断里跑（在 Odometry_Update() 之后、Exp_Speed_Cal() 之前），
+ * 按 odometry.x/y 走一条 10 段阶梯：每段【沿程那根轴给定速、横向那根轴由位置环按住】，
+ * 航向由 Pos_Yaw(0, odometry.theta, 0) 锁在 0°；走够距离就停、原地等三秒、再换下一段。
+ * 只在 TIM6 的 5ms 中断里跑（在 Odometry_Update() 之后、Exp_Speed_Cal() 之前），
  * 所以它写的 Set_Vel 当拍就解算生效。
  *
- * 速度单位：vx/vy = mm/s，ω = rad/s。全程 ω 写死 0（不做直行保持，见「优化方向」）。
+ * 速度单位：vx/vy = mm/s，ω = rad/s。位置环只管「不跑偏」，沿程走多远仍由下面那句
+ * odometry 阈值判定 —— 两者是独立的，改路径尺寸要同时改 Set_Vel 里的保持目标。
  * 刻意不加超时兜底：到位条件不成立就一直走 —— 上电前把车放好。
  *
  * sm_t 不再初始化：静态 0，而 HAL_GetTick 也是从 HAL_Init 起算的，
@@ -170,90 +172,100 @@ static void StateMachine_Update(void)
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE1;
         break;
 
-    case SM_MOVE1:      /* 前进到 x>100 */
-        Set_Vel(100, 0, 0);
-        if (odometry.x > 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
+    case SM_MOVE1:      /* 前进到 x>650（y 按住 0） */
+        //	Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
         break;
     case SM_HOLD1:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE2;
         break;
 
-    case SM_MOVE2:      /* 左移到 y>100 */
-        Set_Vel(0, 100, 0);
-        if (odometry.y > 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+    case SM_MOVE2:      /* 左移到 y>650（x 按住 650） */
+        Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
         break;
     case SM_HOLD2:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE3;
         break;
 
-    case SM_MOVE3:      /* 前进到 x>200 */
-        Set_Vel(100, 0, 0);
-        if (odometry.x > 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
+    case SM_MOVE3:      /* 前进到 x>1630（y 按住 650） */
+        //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 1630.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
         break;
     case SM_HOLD3:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE4;
         break;
 
-    case SM_MOVE4:      /* 左移到 y>200 */
-        Set_Vel(0, 100, 0);
-        if (odometry.y > 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
+    case SM_MOVE4:      /* 左移到 y>1500（x 按住 1630） */
+        Set_Vel(Pos_X(1630.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y > 1500.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
         break;
     case SM_HOLD4:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE5;
         break;
 
-    case SM_MOVE5:      /* 前进到 x>300 */
-        Set_Vel(100, 0, 0);
-        if (odometry.x > 300.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
+    case SM_MOVE5:      /* 前进到 x>2600（y 按住 1500） */
+        //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(1500,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 2600.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
         break;
     case SM_HOLD5:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE6;
         break;
 
-    case SM_MOVE6:      /* 右移到 y<100 */
-        Set_Vel(0, -100, 0);
-        if (odometry.y < 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
+    case SM_MOVE6:      /* 右移到 y<850（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < 850.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
         break;
     case SM_HOLD6:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE7;
         break;
 
-    case SM_MOVE7:      /* 继续右移到 y<-100 */
-        Set_Vel(0, -100, 0);
-        if (odometry.y < -100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }
+    case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < -840.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }
         break;
     case SM_HOLD7:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE8;
         break;
 
-    case SM_MOVE8:      /* 继续右移到 y<-150 */
-        Set_Vel(0, -100, 0);
-        if (odometry.y < -150.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
+    case SM_MOVE8:      /* 继续右移到 y<-1450（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < -1450.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
         break;
     case SM_HOLD8:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE9;
         break;
 
-    case SM_MOVE9:      /* 后退到 x<200 */
-        Set_Vel(-100, 0, 0);
-        if (odometry.x < 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
+    case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
+        //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x < 1520.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
         break;
     case SM_HOLD9:
         Set_Vel(0, 0, 0);
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE10;
         break;
 
-    case SM_MOVE10:     /* 后退到 x<0 */
-        Set_Vel(-100, 0, 0);
-        if (odometry.x < 0.0f) sm_phase = SM_DONE;
+    case SM_MOVE10:     /* 后退到 x<-50（y 按住 -1450） */
+        //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x < -50.0f) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
@@ -285,14 +297,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * 这段必须在 Exp_Speed_Cal() 之前，写的 Set_Vel 才当拍生效。 */
         if (flag_Numdelay && KeyNum == 1)
         {
+			StateMachine_Update();
 //			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-			Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
 //			Set_Vel(Pos_X(0,odometry.x),100,0);     
 //			Set_Vel(100,Pos_Y(0,odometry.y),0);
 //			Set_Vel(0, 0, Pos_Yaw(0,odometry.theta,0));//角度不变移动x，y
 //			Set_Vel(0, 0, 0.6);
 			
-//            StateMachine_Update();
+//           StateMachine_Update();
         }
         else
         {
@@ -319,10 +332,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // kinematics.fb_wheel_rpm.motor_3 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL3));
         // kinematics.fb_wheel_rpm.motor_4 = Kinematics_Pulse_To_RPM((float)Encoder_GetDelta(ENC_WHEEL4));
 
-        /* 四路速度环闭环。目标来自蓝牙 Debug_Target[]，单位脉冲/5ms。
-         * 增益是 mailuncontrol.h 里的宏 —— 现在是 0.0f，所以 p1..p4 恒为 0、电机不动。
-         * 恢复时把下面整块一起取消注释：声明也在块里。只放开 Motor_Load 那一行的话，
-         * p1..p4 就是未初始化变量，中断会拿栈上残值直接驱动电机。 */
+        /* 四路速度环闭环。目标来自 kinematics.exp_wheel_rpm —— 即状态机 Set_Vel 进去、
+         * Exp_Speed_Cal 解算出来的 RPM，经 Kinematics_RPM_To_Pulse 换成脉冲/5ms。
+         * 增益是 mailuncontrol.h 里的 Velocity_Kp1..4 / Ki1..4。
+         * 下面注释掉的是早先的蓝牙开环调试通路（目标取自 Debug_Target[]）。想切回去就
+         * 整块一起放开：声明也在块里，只放开 Motor_Load 那一行的话 p1..p4 就是未初始化
+         * 变量，中断会拿栈上残值直接驱动电机。 */
         // int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
         // p1 = Velocity_Wheel1((float)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1));
         // p2 = Velocity_Wheel2((float)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2));
@@ -338,14 +353,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-//写个状态机 （先原地等待三秒） -> 以Set_Vel(100, 0, 0.0) 直线前进 -> 
-//当x>100时停 等待三秒   以Set_Vel(0, +100, 0 ) -> 
-//当y>100时停 等待三秒   以Set_Vel(100, 0, 0.0) 直线前进 -> 
-//当x>200时停 等待三秒   以Set_Vel(0, +100, 0 ) ->
-//当y>200时停 等待三秒   以Set_Vel(100, 0, 0 ) ->  
-//当x>300时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
-//当y<100时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
-//当y<-100时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
-//当y<-150时停 等待三秒   以Set_Vel(-100, 0, 0 ) ->
-//当x<200时停 等待三秒   以Set_Vel(-100, 0, 0 ) ->
-//当x<0时停  停
+//实际路径（10 段，每段之间原地等 3 秒；沿程轴 vx/vy 单位 mm/s）：
+//  MOVE1  前进 vx=+100，y 环压住 0      -> x>650   停
+//  MOVE2  左移 vy=+100，x 环压住 650    -> y>650   停
+//  MOVE3  前进 vx=+100，y 环压住 650    -> x>1630  停
+//  MOVE4  左移 vy=+100，x 环压住 1630   -> y>1500  停
+//  MOVE5  前进 vx=+100，y 环压住 1500   -> x>2600  停
+//  MOVE6  右移 vy=-100，x 环压住 2600   -> y<850   停
+//  MOVE7  右移 vy=-100，x 环压住 2600   -> y<-840  停
+//  MOVE8  右移 vy=-100，x 环压住 2600   -> y<-1450 停
+//  MOVE9  后退 vx=-100，y 环压住 -1450  -> x<1520  停
+//  MOVE10 后退 vx=-100，y 环压住 -1450  -> x<-50   停
+//终止：SM_DONE，Set_Vel(0,0,0)。SM_DONE 没有出口，重跑要复位。
