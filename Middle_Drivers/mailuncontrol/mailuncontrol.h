@@ -35,4 +35,44 @@ int Velocity_Wheel2(float Target, int encoder);
 int Velocity_Wheel3(float Target, int encoder);
 int Velocity_Wheel4(float Target, int encoder);
 
+/* ============ 车体位置环（外环）============
+ * 反馈取 odometry.x / .y / .theta，返回【速度指令】，喂 Set_Vel(vx, vy, ω)。
+ * 后面接的是现成的 Exp_Speed_Cal -> 轮速环 -> Motor_Load，本模块不碰电机。
+ *
+ * 单位：Pos_X / Pos_Y  误差 mm  -> 返回 mm/s
+ *       Pos_Yaw       误差 deg -> 返回 rad/s（函数内已乘 DEG2RAD）
+ * 三个环的 Kp 单位统一是 1/s。全部带 f 后缀：F407 只有单精度 FPU，
+ * 不带 f 会被提升成 double 走软件模拟（同本文件上面 Velocity_Kp 那条注释）。
+ *
+ * 调参顺序：先只给 Kp（Ki 清 0），加到响应够快、略有超调，再退回 60~80%；
+ * 然后加 Ki，从 Kp 的 1/20 ~ 1/50 起。三个一起调会定位不出问题源。
+ *
+ * 注意：调用周期直接决定 Ki 和积分限幅的量级，下面是按「5ms 调一次」估的。 */
+#define Pos_Kp_X      2.0f      /* 1/s：100mm 误差 -> 100mm/s */
+#define Pos_Ki_X      0.02f
+#define Pos_Kp_Y      2.0f
+#define Pos_Ki_Y      0.02f
+#define Pos_Kp_Yaw    0.07f      /* 1/s：10deg 误差 -> 0.87rad/s ≈ 50deg/s */
+#define Pos_Ki_Yaw    0.0f
+
+/* 积分累计量限幅（单位：mm·拍 / rad·拍）。yaw 单独给 —— 误差换成 rad 后数值比 mm
+ * 小一个量级，共用同一个值会让积分项顶到输出上限。 */
+#define Pos_I_Limit_XY   200.0f
+#define Pos_I_Limit_Yaw  5.0f
+
+/* 输出限幅：x/y 是 mm/s，yaw 是 rad/s。只管把指令关进合理范围 ——
+ * 后面 Exp_Speed_Cal() 还会按 MAX_RPM 做一次整体比例缩放（kinematics.c:83），
+ * 所以这不是最后一道防线，只是别让指令一开始就离谱。 */
+#define Pos_V_Max     300.0f
+#define Pos_W_Max     1.0f
+
+/* 误差一阶低通系数（0 = 不滤，越大越钝）。x/y 用 0.8 是你原来的值；
+ * yaw 原来写 0.0，即直通不过滤，也原样保留。嫌位置环超调就先把 XY 调到 0.0 试。 */
+#define Pos_A_XY      0.8f
+#define Pos_A_Yaw     0.0f
+
+float Pos_X(float Target, float pos_x);                   /* mm  -> mm/s */
+float Pos_Y(float Target, float pos_y);                   /* mm  -> mm/s */
+float Pos_Yaw(float Target, float pos_theta, float Yaw);  /* deg -> rad/s */
+
 #endif

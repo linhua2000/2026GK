@@ -4,10 +4,10 @@
 #include "main.h"
 
 // ================== 机械参数（单位：毫米 mm） ==================
-#define WHEEL_DIAMETER          60.0f       // 轮子直径 (mm)
+#define WHEEL_DIAMETER          75.0f       // 轮子直径 (mm)
 #define WHEEL_CIRCUMFERENCE     (3.1415926f * WHEEL_DIAMETER)  // 轮子周长 (mm)
 #define WHEELS_X_DISTANCE       160.0f      // 前后轮中心距 (mm)，即 2a
-#define WHEELS_Y_DISTANCE       200.0f      // 左右轮中心距 (mm)，即 2b
+#define WHEELS_Y_DISTANCE       220.0f      // 左右轮中心距 (mm)，即 2b
 
 // ω 项（差速项）用的等效半径 = a + b。
 // 上面两个是「中心距」，即 2a / 2b，所以这里取一半。若误用 160+200=360，

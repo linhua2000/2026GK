@@ -2,8 +2,12 @@
  * 速度环 PI 控制 —— 四路麦轮
  * 采样在 TIM6 的 5ms 中断里触发，encoder 参数单位 = 脉冲/5ms。
  * 四路增益各自独立，在 mailuncontrol.h；当前都是 0.0f（未标定）—— 输出恒 0。
+ *
+ * 本文件后半还有【车体位置环】Pos_X / Pos_Y / Pos_Yaw：反馈取 odometry 的
+ * x/y/θ，输出速度指令喂 Set_Vel，是轮速环的外一层。增益也在 mailuncontrol.h。
  * ============================================================ */
 #include "mailuncontrol.h"
+#include "kinematics.h"     /* Get_MiMx()：位置环的输出限幅和积分限幅都用它 */
 
 int Velocity_Wheel1(float Target, int encoder)
 {
@@ -93,4 +97,74 @@ int Velocity_Wheel4(float Target, int encoder)
 
 	PWM_out = Velocity_Kp4 * EnC_Err_Lowout + Velocity_Ki4 * Encoder_S;
 	return PWM_out;
+}
+
+/* ============ 车体位置环（外环）============
+ * 反馈取 odometry.x / .y / .theta，返回【速度指令】，喂 Set_Vel(vx, vy, ω)。
+ * 后面接的是现成的 Exp_Speed_Cal -> 轮速环 -> Motor_Load，本模块不碰电机。
+ * 单位见 mailuncontrol.h 里那几个宏的注释。 */
+
+#define DEG2RAD_POS   (3.1415926f / 180.0f)
+
+/* 三路各自独立的滤波状态 / 积分累计量。函数各是单例，所以这块只有一份。 */
+static float s_err_lp_x,   s_err_sum_x;
+static float s_err_lp_y,   s_err_sum_y;
+static float s_err_lp_yaw, s_err_sum_yaw;
+
+float Pos_X(float Target, float pos_x)
+{
+	float err, err_lp;
+
+	err    = Target - pos_x;
+	err_lp = (1.0f - Pos_A_XY) * err + Pos_A_XY * s_err_lp_x;
+	s_err_lp_x = err_lp;
+
+	/* 积分项：累加滤波后的误差，再单独限幅（抗积分饱和）。 */
+	s_err_sum_x += err_lp;
+	s_err_sum_x = Get_MiMx(s_err_sum_x, -Pos_I_Limit_XY, Pos_I_Limit_XY);
+
+	/* 调用方用精确的 0.0f 表示「这一段跑完了、停」，顺手清积分 —— 不清的话
+	 * 下次起步会被上面积下来的量顶一下。用容差比而不是 ==，免得哪天调用方
+	 * 传 0.0001f 就静默失效。 */
+	if (Target == 0.0f && err > -0.001f && err < 0.001f) s_err_sum_x = 0.0f;
+
+	return Get_MiMx(Pos_Kp_X * err_lp + Pos_Ki_X * s_err_sum_x,
+	                -Pos_V_Max, Pos_V_Max);
+}
+
+float Pos_Y(float Target, float pos_y)
+{
+	float err, err_lp;
+
+	err    = Target - pos_y;
+	err_lp = (1.0f - Pos_A_XY) * err + Pos_A_XY * s_err_lp_y;
+	s_err_lp_y = err_lp;
+
+	s_err_sum_y += err_lp;
+	s_err_sum_y = Get_MiMx(s_err_sum_y, -Pos_I_Limit_XY, Pos_I_Limit_XY);
+
+	if (Target == 0.0f && err > -0.001f && err < 0.001f) s_err_sum_y = 0.0f;
+
+	return Get_MiMx(Pos_Kp_Y * err_lp + Pos_Ki_Y * s_err_sum_y,
+	                -Pos_V_Max, Pos_V_Max);
+}
+
+float Pos_Yaw(float Target, float pos_theta, float Yaw)
+{
+	float err, err_lp;
+
+	(void)Yaw;      /* 保留形参：以后做「麦轮正解角 + 陀螺仪角」融合用（决定 D） */
+
+	/* 误差是 deg，先换成 rad，这样 Kp 和 x/y 同为 1/s，输出即 rad/s。 */
+	err    = (Target - pos_theta); //* DEG2RAD_POS;
+	err_lp = (1.0f - Pos_A_Yaw) * err + Pos_A_Yaw * s_err_lp_yaw;
+	s_err_lp_yaw = err_lp;
+
+	s_err_sum_yaw += err_lp;
+	s_err_sum_yaw = Get_MiMx(s_err_sum_yaw, -Pos_I_Limit_Yaw, Pos_I_Limit_Yaw);
+
+	// if (Target == 0.0f && err > -0.0001f && err < 0.0001f) s_err_sum_yaw = 0.0f;
+
+	return Get_MiMx(Pos_Kp_Yaw * err_lp + Pos_Ki_Yaw * s_err_sum_yaw,
+	                -Pos_W_Max, Pos_W_Max);
 }

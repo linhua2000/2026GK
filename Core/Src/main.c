@@ -34,12 +34,14 @@
 #include "jy61p.h"
 #include "control.h"
 #include "kinematics.h"
+#include "odometry.h"
 #include <stdio.h>
 #include "SCServo.h"
 #include "receive.h"
 #include "OLED.h"
 #include "oled_ui.h"
 #include "PID.h"
+#include "key.h"
 
 /* USER CODE END Includes */
 
@@ -132,7 +134,9 @@ int main(void)
   UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
   Encoder_Init();                                 /* 启动四路编码器计数 */
   Motor_Init();                                   /* 启动四路电机 PWM 输出 */
+  Key_Init();                                     /* 四个按键（PC5/PE7/PE0/PE8，上拉） */
   Kinematics_Init();
+  Odometry_Init();                                /* 里程计：上电位置记为原点 */
 	
   HAL_TIM_Base_Start_IT(&htim6); //【必须手动加，开启定时器+中断】
   /* HWT905 九轴陀螺仪（USART3 PB10/PB11，模块波特率 115200）。
@@ -232,7 +236,15 @@ int main(void)
       /* sprintf((char *)txbuf, "A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f\r\n",
                  Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
       UART1_Send_Str(txbuf); */
-    /* XY 舵机: 每来一帧抓取数据算一次 PID(须在 OLED 块之前) */
+    
+		if (Key_Check(KEY_1, KEY_SINGLE))
+		{
+			KeyNum ^= 1;              /* 0 <-> 1 跑停翻转 */
+			if (KeyNum) LED_On(1);    /* LED1 如实反映当前状态 */
+			else        LED_Off(1);
+		}
+
+	/* XY 舵机: 每来一帧抓取数据算一次 PID(须在 OLED 块之前) */
     Servo_PID_Update();
 
     uint32_t now = HAL_GetTick();
@@ -241,7 +253,8 @@ int main(void)
     if (now - prev_oled >= 200)
     {
         prev_oled = now;
-        OLED_ShowGyro();
+        // OLED_ShowGyro();   /* 陀螺仪页（Roll/Pitch/Yaw） */
+        OLED_ShowOdom();   /* 里程计页（X/Y/Th）：想看坐标时把上一行注释掉、这行放开 */
         vision_data.qr_flag = 0;
         vision_data.track_flag = 0;
         vision_data.turn_flag = 0;
@@ -251,7 +264,7 @@ int main(void)
     if (now - prev_led >= 500)
     {
         prev_led = now;
-        LED_Toggle(1);
+        // LED_Toggle(1);
     }
 
     /* 舵机指令 + LED4: 约每 1s 一次 */

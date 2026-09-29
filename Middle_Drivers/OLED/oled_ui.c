@@ -2,6 +2,7 @@
 #include "OLED.h"
 #include "receive.h"
 #include "jy61p.h"
+#include "odometry.h"
 
 /* 显示带符号十进制数(无前导零), 如 +5 / -640 */
 static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSize)
@@ -100,6 +101,33 @@ void OLED_ShowGyro(void)
 
     OLED_ShowString(0, 48, "Yaw  :", OLED_6X8);
     OLED_ShowSignedFloat(48, 48, Yaw, 2, OLED_6X8);
+
+    OLED_Update();
+}
+
+/* 把里程计坐标 x/y/θ 刷新到 OLED 显示。
+ * 和 OLED_ShowGyro 并存 —— 哪一页显示由调用方(main 循环)决定，这里只管画。
+ * y=32 那一行故意留空；陀螺仪页还在显示 Yaw，要对照时再补上去。 */
+void OLED_ShowOdom(void)
+{
+    OLED_Clear();
+
+    OLED_ShowString(0,  0, "ODOM", OLED_6X8);
+
+    OLED_ShowString(0,  8, "X :", OLED_6X8);
+    OLED_ShowSignedFloat(24, 8, odometry.x, 1, OLED_6X8);
+    OLED_ShowString(96, 8, "mm", OLED_6X8);
+
+    OLED_ShowString(0, 16, "Y :", OLED_6X8);
+    OLED_ShowSignedFloat(24, 16, odometry.y, 1, OLED_6X8);
+    OLED_ShowString(96, 16, "mm", OLED_6X8);
+
+    OLED_ShowString(0, 24, "Th:", OLED_6X8);
+    OLED_ShowSignedFloat(24, 24, odometry.theta, 1, OLED_6X8);
+    OLED_ShowString(96, 24, "dg", OLED_6X8);
+
+    OLED_ShowString(0, 32, "Yaw  :", OLED_6X8);
+    OLED_ShowSignedFloat(48, 32, Yaw, 2, OLED_6X8);
 
     OLED_Update();
 }

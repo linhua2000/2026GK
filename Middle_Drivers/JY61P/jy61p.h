@@ -11,4 +11,7 @@ extern volatile float Roll, Pitch, Yaw;         /* 角度 °   */
 extern volatile float Ax, Ay, Az;               /* 加速度 g */
 extern volatile float Gx, Gy, Gz;               /* 角速度 °/s */
 
+/* 1 = 收到过至少一帧 0x53 角度包。里程计用它决定何时抓航向零点 */
+extern volatile uint8_t Yaw_Valid;
+
 #endif

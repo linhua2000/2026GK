@@ -27,6 +27,10 @@ extern volatile int32_t Debug_Target[DEBUG_WHEEL_NUM];
 /* 四路 PWM 实际输出：TIM6 中断里写，主循环里读 -> 必须 volatile */
 extern volatile int32_t Debug_Pwm[DEBUG_WHEEL_NUM];
 
+/* 按键跑/停开关（KEY_1 单击翻转）：main.c 主循环里写、TIM6 中断里读 -> 必须 volatile。
+ * 定义在 control.c。0 = 停（每拍显式 Set_Vel(0,0,0)），1 = 跑状态机。 */
+extern volatile uint8_t KeyNum;
+
 /* USART1 每收到一字节调一次。由 main.c 的 HAL_UART_RxCpltCallback 调用，
  * 接收的启动与重武装也都在 main.c —— 和 jy61p 一个约定。 */
 void Debug_RxByte(uint8_t b);

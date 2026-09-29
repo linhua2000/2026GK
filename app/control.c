@@ -4,12 +4,22 @@
 #include "motor.h"
 #include "mailuncontrol.h"
 #include "kinematics.h"
+#include "odometry.h"
 #include "uart1.h"
+#include "key.h"
 #include <stdio.h>
 
 /* volatile 的理由见 control.h */
 volatile int32_t Debug_Target[DEBUG_WHEEL_NUM] = {0, 0, 0, 0};
 volatile int32_t Debug_Pwm[DEBUG_WHEEL_NUM]    = {0, 0, 0, 0};
+
+/* 按键跑/停开关（定义见 control.h）。KEY_1 单击翻转：0 = 停，1 = 跑状态机。 */
+volatile uint8_t KeyNum = 0;
+
+/* 开机闸门：上电 1.5s（Timer 数到 300 拍 × 5ms）后 flag_Numdelay 置 1，之后不再回 0。
+ * Timer 必须是 uint16_t —— uint8_t 最大 255、到 256 就回绕，`Timer > 300` 永远不成立。 */
+static uint8_t  flag_Numdelay;
+static uint16_t Timer;
 
 /* ================= 指令接收 =================
  * 收满一行就地解析。刻意不用 sscanf —— 这段跑在 USART1 中断里，
@@ -118,15 +128,178 @@ void Debug_RxByte(uint8_t b)
 //    UART1_Send_Buf(txbuf, (uint16_t)len);
 //}
 
+/* ================= 里程计路径状态机 =================
+ * 按 odometry.x/y 走一条 10 段阶梯：每段给一个固定车体速度，走够距离就停、原地等三秒、
+ * 再换下一段。只在 TIM6 的 5ms 中断里跑（在 Odometry_Update() 之后、Exp_Speed_Cal() 之前），
+ * 所以它写的 Set_Vel 当拍就解算生效。
+ *
+ * 速度单位：vx/vy = mm/s，ω = rad/s。全程 ω 写死 0（不做直行保持，见「优化方向」）。
+ * 刻意不加超时兜底：到位条件不成立就一直走 —— 上电前把车放好。
+ *
+ * sm_t 不再初始化：静态 0，而 HAL_GetTick 也是从 HAL_Init 起算的，
+ * 于是 SM_IDLE 那三秒就是「上电后约三秒」，跟 main 里那段 HAL_Delay(3000) 的开机灯重叠。
+ */
+typedef enum {
+    SM_IDLE = 0,                        /* 上电原地等三秒（同时等陀螺仪出帧） */
+    SM_MOVE1, SM_HOLD1,
+    SM_MOVE2, SM_HOLD2,
+    SM_MOVE3, SM_HOLD3,
+    SM_MOVE4, SM_HOLD4,
+    SM_MOVE5, SM_HOLD5,
+    SM_MOVE6, SM_HOLD6,
+    SM_MOVE7, SM_HOLD7,
+    SM_MOVE8, SM_HOLD8,
+    SM_MOVE9, SM_HOLD9,
+    SM_MOVE10,                          /* 第 10 段后面没有 HOLD，直接进 DONE */
+    SM_DONE
+} SM_State;
+
+#define SM_HOLD_MS   3000U
+
+static SM_State  sm_phase = SM_IDLE;
+static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
+
+static void StateMachine_Update(void)
+{
+    switch (sm_phase)
+    {
+    case SM_IDLE:
+        Set_Vel(0, 0, 0);
+        /* 等陀螺仪出帧：ready 之前 odometry.x/y 恒为 0，这时候起步第一段会多走一截 */
+        if (!odometry.ready) return;
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE1;
+        break;
+
+    case SM_MOVE1:      /* 前进到 x>100 */
+        Set_Vel(100, 0, 0);
+        if (odometry.x > 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
+        break;
+    case SM_HOLD1:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE2;
+        break;
+
+    case SM_MOVE2:      /* 左移到 y>100 */
+        Set_Vel(0, 100, 0);
+        if (odometry.y > 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+        break;
+    case SM_HOLD2:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE3;
+        break;
+
+    case SM_MOVE3:      /* 前进到 x>200 */
+        Set_Vel(100, 0, 0);
+        if (odometry.x > 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
+        break;
+    case SM_HOLD3:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE4;
+        break;
+
+    case SM_MOVE4:      /* 左移到 y>200 */
+        Set_Vel(0, 100, 0);
+        if (odometry.y > 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
+        break;
+    case SM_HOLD4:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE5;
+        break;
+
+    case SM_MOVE5:      /* 前进到 x>300 */
+        Set_Vel(100, 0, 0);
+        if (odometry.x > 300.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
+        break;
+    case SM_HOLD5:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE6;
+        break;
+
+    case SM_MOVE6:      /* 右移到 y<100 */
+        Set_Vel(0, -100, 0);
+        if (odometry.y < 100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
+        break;
+    case SM_HOLD6:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE7;
+        break;
+
+    case SM_MOVE7:      /* 继续右移到 y<-100 */
+        Set_Vel(0, -100, 0);
+        if (odometry.y < -100.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }
+        break;
+    case SM_HOLD7:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE8;
+        break;
+
+    case SM_MOVE8:      /* 继续右移到 y<-150 */
+        Set_Vel(0, -100, 0);
+        if (odometry.y < -150.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
+        break;
+    case SM_HOLD8:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE9;
+        break;
+
+    case SM_MOVE9:      /* 后退到 x<200 */
+        Set_Vel(-100, 0, 0);
+        if (odometry.x < 200.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
+        break;
+    case SM_HOLD9:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE10;
+        break;
+
+    case SM_MOVE10:     /* 后退到 x<0 */
+        Set_Vel(-100, 0, 0);
+        if (odometry.x < 0.0f) sm_phase = SM_DONE;
+        break;
+
+    case SM_DONE:
+        Set_Vel(0, 0, 0);               /* 停住，不再动 */
+        break;
+    }
+}
+
 /* ================= 5ms 闭环 ================= */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if(htim->Instance == TIM6)
     {
-        Encoder_Update();   /* 5ms：读取四路编码器增量（脉冲/5ms） */
+        Key_Tick();             /* 5ms：按键状态机（Key.c，10ms 采样一次） */
+        Encoder_Update();       /* 5ms：读取四路编码器增量（脉冲/5ms） */
+        Odometry_Update();      /* 5ms：正解 + 积分 -> x/y/θ */
 
-        Set_Vel(-00, -0, 0.00 );                      // mm/s, mm/s, rad/s —— 只存不算
-        Exp_Speed_Cal();                         // 解算 -> exp_wheel_rpm (RPM)
+        /* 开机闸门：上电 1.5s（300 拍 × 5ms）后才允许按 KEY_1 起步。
+         * 到点后 Timer 不再累加，避免 uint16 白绕。 */
+        if (!flag_Numdelay)
+        {
+            Timer++;
+            if (Timer > 300U) flag_Numdelay = 1;
+        }
+
+        /* KeyNum==1 才跑状态机；否则每拍显式写 0。
+         * 光是不调 StateMachine_Update() 停不住车 —— Set_Vel 只是把指令存进
+         * kinematics.exp_vel，Exp_Speed_Cal() 每拍都会拿上一拍的值解算。
+         * 这段必须在 Exp_Speed_Cal() 之前，写的 Set_Vel 才当拍生效。 */
+        if (flag_Numdelay && KeyNum == 1)
+        {
+//			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+			Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+//			Set_Vel(Pos_X(0,odometry.x),100,0);     
+//			Set_Vel(100,Pos_Y(0,odometry.y),0);
+//			Set_Vel(0, 0, Pos_Yaw(0,odometry.theta,0));//角度不变移动x，y
+//			Set_Vel(0, 0, 0.6);
+			
+//            StateMachine_Update();
+        }
+        else
+        {
+            Set_Vel(0, 0, 0);
+        }
+
+        Exp_Speed_Cal();        /* 解算 -> exp_wheel_rpm (RPM) */
 
         int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
         p1 = Velocity_Wheel1(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_1),
@@ -156,8 +329,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // p3 = Velocity_Wheel3((float)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3));
         // p4 = Velocity_Wheel4((float)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4));
 
-
-
         Debug_Pwm[0] = p1;              /* 存起来给主循环回传 */
         Debug_Pwm[1] = p2;
         Debug_Pwm[2] = p3;
@@ -166,3 +337,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	Motor_Load(p1, p2, p3, p4);     /* 内部 Limit() 夹到 ±1050，无需另加限幅 */
     }
 }
+
+//写个状态机 （先原地等待三秒） -> 以Set_Vel(100, 0, 0.0) 直线前进 -> 
+//当x>100时停 等待三秒   以Set_Vel(0, +100, 0 ) -> 
+//当y>100时停 等待三秒   以Set_Vel(100, 0, 0.0) 直线前进 -> 
+//当x>200时停 等待三秒   以Set_Vel(0, +100, 0 ) ->
+//当y>200时停 等待三秒   以Set_Vel(100, 0, 0 ) ->  
+//当x>300时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
+//当y<100时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
+//当y<-100时停 等待三秒   以Set_Vel(0, -100, 0 ) -> 
+//当y<-150时停 等待三秒   以Set_Vel(-100, 0, 0 ) ->
+//当x<200时停 等待三秒   以Set_Vel(-100, 0, 0 ) ->
+//当x<0时停  停

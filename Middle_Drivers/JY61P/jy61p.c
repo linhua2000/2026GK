@@ -20,6 +20,10 @@ volatile float Roll, Pitch, Yaw;    /* 角度 ° */
 volatile float Ax, Ay, Az;          /* 加速度 g */
 volatile float Gx, Gy, Gz;          /* 角速度 °/s */
 
+/* 「收到过至少一帧 0x53 角度包」的标志。里程计要等它置位才抓航向零点 ——
+ * Yaw 上电初值是 0，模块第一帧到达前抓零点会抓到那个错的 0。 */
+volatile uint8_t Yaw_Valid = 0;
+
 /* 小端两字节 -> 有符号数 */
 static int16_t rd16(uint8_t idx)
 {
@@ -83,6 +87,7 @@ void jy61p_ReceiveData(uint8_t RxData)
                         Roll  = rd16(2) * ANG_LSB_DEG;
                         Pitch = rd16(4) * ANG_LSB_DEG;
                         Yaw   = rd16(6) * ANG_LSB_DEG;
+                        Yaw_Valid = 1;      /* 里程计靠这个判断航向零点可以抓了 */
                         break;
 
                     default:
