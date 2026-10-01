@@ -3,6 +3,7 @@
 #include "receive.h"
 #include "jy61p.h"
 #include "odometry.h"
+#include "control.h"
 
 /* 显示带符号十进制数(无前导零), 如 +5 / -640 */
 static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSize)
@@ -128,6 +129,36 @@ void OLED_ShowOdom(void)
 
     OLED_ShowString(0, 32, "Yaw  :", OLED_6X8);
     OLED_ShowSignedFloat(48, 32, Yaw, 2, OLED_6X8);
+
+    OLED_Update();
+}
+
+/* 把状态机状态 + 收发状态 + 里程计坐标 + 偏航角刷新到 OLED */
+void OLED_ShowStatus(void)
+{
+    OLED_Clear();
+
+    /* 状态机当前状态 */
+    OLED_ShowString(0,  0, "ST:", OLED_6X8);
+    OLED_ShowString(18, 0, (char *)Control_GetStateName(), OLED_6X8);
+
+    /* 发送命令(不显示帧头) */
+    OLED_ShowString(0,  8, "TX:", OLED_6X8);
+    OLED_ShowHexNum(18, 8, vision_data.last_tx_cmd, 2, OLED_6X8);
+
+    /* 接收状态 0/1 */
+    OLED_ShowString(0, 16, "RX:", OLED_6X8);
+    OLED_ShowNum(18, 16, vision_data.rx_status, 1, OLED_6X8);
+
+    /* 里程计坐标 */
+    OLED_ShowString(0, 24, "X :", OLED_6X8);
+    OLED_ShowSignedFloat(24, 24, odometry.x, 1, OLED_6X8);
+    OLED_ShowString(0, 32, "Y :", OLED_6X8);
+    OLED_ShowSignedFloat(24, 32, odometry.y, 1, OLED_6X8);
+
+    /* 偏航角 */
+    OLED_ShowString(0, 40, "Yaw:", OLED_6X8);
+    OLED_ShowSignedFloat(36, 40, Yaw, 2, OLED_6X8);
 
     OLED_Update();
 }

@@ -158,6 +158,7 @@ int main(void)
   uint32_t prev_led   = 0;
   uint32_t prev_servo = 0;
   uint32_t prev_oled  = 0;
+  static uint8_t sim_key3_state = 0;   /* KEY_3 模拟: 0=未按 1=球已模拟 2=桶已模拟 */
 
   /* 蓝牙 PID 调试口（USART1 PA9/PA10，115200）：和上面一样先武装起来，
    * 每字节进 HAL_UART_RxCpltCallback -> Debug_RxByte()。
@@ -244,8 +245,19 @@ int main(void)
 			else        LED_Off(1);
 		}
 
-	/* XY 舵机: 每来一帧抓取数据算一次 PID(须在 OLED 块之前) */
-    Servo_PID_Update();
+        /* 测试模拟: KEY_2=模拟收到二维码A5; KEY_3 第1次=球稳定(num1=2), 第2次=桶稳定 */
+        if (Key_Check(KEY_2, KEY_SINGLE))
+        {
+            vision_data.rx_status = 1;      /* 模拟收到二维码 A5 */
+        }
+        if (Key_Check(KEY_3, KEY_SINGLE))
+        {
+            if (sim_key3_state == 0) { sim_ball_stable = 1; vision_data.num1 = 2; sim_key3_state = 1; }
+            else if (sim_key3_state == 1) { sim_bucket_stable = 1; sim_key3_state = 2; }
+        }
+
+    /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */
+    Hold_Action_Update();
 
     uint32_t now = HAL_GetTick();
 
@@ -254,10 +266,7 @@ int main(void)
     {
         prev_oled = now;
         // OLED_ShowGyro();   /* 陀螺仪页（Roll/Pitch/Yaw） */
-        OLED_ShowOdom();   /* 里程计页（X/Y/Th）：想看坐标时把上一行注释掉、这行放开 */
-        vision_data.qr_flag = 0;
-        vision_data.track_flag = 0;
-        vision_data.turn_flag = 0;
+        OLED_ShowStatus();   /* 状态/收发/坐标/偏航角页 */
     }
 
     /* LED1 闪烁: 每 500ms 翻转(亮500ms灭500ms) */

@@ -45,6 +45,7 @@ static void dispatch_frame(void)
             vision_data.qr_y = (int8_t)rx_buf[2];
             vision_data.qr_z = (int8_t)rx_buf[3];
             vision_data.qr_flag = 1;
+            vision_data.rx_status = 1;   /* 收到 A5 握手帧 */
             break;
         case FRAME_TRACK_HEAD:
             vision_data.track_x = (int8_t)rx_buf[1];
@@ -59,6 +60,7 @@ static void dispatch_frame(void)
             vision_data.grab_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
             vision_data.grab_y = (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8));
             vision_data.grab_dist = (int16_t)(rx_buf[5] | ((uint16_t)rx_buf[6] << 8));
+            vision_data.num1 = (uint8_t)vision_data.grab_dist;   /* 球帧第三字段现在是 num1(1-3) */
             vision_data.grab_flag = 1;
             break;
         default:
@@ -154,6 +156,7 @@ void Vision_Send_Ack(void)
 static void vision_send_grab(uint8_t cmd)
 {
     uint8_t frame[3] = {FRAME_GRAB_HEAD, cmd, FRAME_GRAB_TAIL};
+    vision_data.last_tx_cmd = cmd;
     HAL_UART_Transmit(&huart4, frame, 3, 10);
 }
 
@@ -167,6 +170,15 @@ void Vision_Send_Switch_Bucket(void)
 void Vision_Send_Release_Done(void)
 {
     vision_send_grab(0x02);
+}
+
+/* 发一帧 B6 cmd 6B 给视觉(HOLD 段命令) */
+void Vision_Send_B6(uint8_t cmd)
+{
+    uint8_t frame[3] = {FRAME_TRACK_HEAD, cmd, FRAME_TRACK_TAIL};
+    vision_data.last_tx_cmd = cmd;
+    vision_data.rx_status   = 0;   /* 发新命令, 清接收状态 */
+    HAL_UART_Transmit(&huart4, frame, 3, 10);
 }
 
 /* 注意: UART4 的中断入口 UART4_IRQHandler 已在 stm32f4xx_it.c 中定义,

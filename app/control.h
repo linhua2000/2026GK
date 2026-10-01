@@ -38,4 +38,7 @@ void Debug_RxByte(uint8_t b);
 /* 主循环里调；内部自己计时，够 20ms 就发一行回传。 */
 void Debug_Poll(void);
 
+/* OLED 显示用：状态机当前状态名 */
+const char * Control_GetStateName(void);
+
 #endif

@@ -56,6 +56,11 @@ typedef struct {
     uint8_t track_flag;   /* 收到循迹帧 */
     uint8_t turn_flag;    /* 收到转弯帧 C7 0 7C, 需要转弯 */
     uint8_t grab_flag;    /* 收到抓取帧 */
+    /* 收发状态(OLED) + 后续 part2/part4 字段 */
+    uint8_t last_tx_cmd;  /* 最近发出的命令字节 (OLED TX) */
+    uint8_t rx_status;    /* 接收状态 (OLED RX): 0=未收到 1=收到A5; 发新命令时清0 */
+    uint8_t num1;         /* part2 球帧 D8 x y num1 的随机数(1-3), part1 不用 */
+    uint8_t num2;         /* part4 桶帧 D8 x y num2 8D 的桶号, part1 不用 */
 } VisionData_t;
 
 extern volatile VisionData_t vision_data;
@@ -74,5 +79,8 @@ void Vision_Send_Switch_Bucket(void);
 
 /* 放完球, 通知视觉完成: D8 02 8D */
 void Vision_Send_Release_Done(void);
+
+/* 发 B6 cmd 6B (HOLD 段命令) */
+void Vision_Send_B6(uint8_t cmd);
 
 #endif /* __RECEIVE_H */

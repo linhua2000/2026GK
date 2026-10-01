@@ -7,6 +7,7 @@
 #include "odometry.h"
 #include "uart1.h"
 #include "key.h"
+#include "PID.h"
 #include <stdio.h>
 
 /* volatile 的理由见 control.h */
@@ -179,7 +180,8 @@ static void StateMachine_Update(void)
         break;
     case SM_HOLD1:
         Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE2;
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 握手+舵机复位 */
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }
         break;
 
     case SM_MOVE2:      /* 左移到 y>650（x 按住 650） */
@@ -229,7 +231,8 @@ static void StateMachine_Update(void)
         break;
     case SM_HOLD6:
         Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE7;
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 2; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part2 追球抓球+追桶放桶 */
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE7; }
         break;
 
     case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
@@ -272,6 +275,18 @@ static void StateMachine_Update(void)
         Set_Vel(0, 0, 0);               /* 停住，不再动 */
         break;
     }
+}
+
+/* OLED 显示用：返回状态机当前状态名（数组下标与 SM_State 枚举值一一对应） */
+const char * Control_GetStateName(void)
+{
+    static const char *names[] = {
+        "IDLE","MOVE1","HOLD1","MOVE2","HOLD2",
+        "MOVE3","HOLD3","MOVE4","HOLD4","MOVE5","HOLD5",
+        "MOVE6","HOLD6","MOVE7","HOLD7","MOVE8","HOLD8",
+        "MOVE9","HOLD9","MOVE10","DONE"
+    };
+    return names[sm_phase];
 }
 
 /* ================= 5ms 闭环 ================= */

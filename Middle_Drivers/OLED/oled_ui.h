@@ -10,4 +10,7 @@ void OLED_ShowGyro(void);
 /* 把里程计坐标 x/y/θ 刷新到 OLED 显示 */
 void OLED_ShowOdom(void);
 
+/* 把状态机状态 + 收发状态 + 坐标 + 偏航角刷新到 OLED */
+void OLED_ShowStatus(void);
+
 #endif
