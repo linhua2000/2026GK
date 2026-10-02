@@ -35,6 +35,7 @@
 #include "control.h"
 #include "kinematics.h"
 #include "odometry.h"
+#include "laser.h"
 #include <stdio.h>
 /* EasyLogger：LOG_TAG / LOG_LVL 必须先于 <elog.h> 定义 */
 #define LOG_TAG    "MAIN"
@@ -248,6 +249,10 @@ int main(void)
         {
             if (sim_key3_state == 0) { sim_ball_stable = 1; vision_data.num1 = 2; sim_key3_state = 1; }
             else if (sim_key3_state == 1) { sim_bucket_stable = 1; sim_key3_state = 2; }
+        }
+		if (Key_Check(KEY_4, KEY_SINGLE))
+        {
+           laser_Toggle();
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */

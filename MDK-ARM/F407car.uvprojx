@@ -336,7 +336,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../Middle_Drivers/uart1;../Middle_Drivers/encoder;../app;../Middle_Drivers/motor;../Middle_Drivers/JY61P;../Middle_Drivers/mailuncontrol;../Middle_Drivers/kinematics;../SCSLib;../Middle_Drivers/receive;../Middle_Drivers/OLED;../Middle_Drivers/PID;../Middle_Drivers/odometry;..\Middle_Drivers\key;..\easylogger\inc</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middle_Drivers;../Middle_Drivers/LED;../Middle_Drivers/uart1;../Middle_Drivers/encoder;../app;../Middle_Drivers/motor;../Middle_Drivers/JY61P;../Middle_Drivers/mailuncontrol;../Middle_Drivers/kinematics;../SCSLib;../Middle_Drivers/receive;../Middle_Drivers/OLED;../Middle_Drivers/PID;../Middle_Drivers/odometry;..\Middle_Drivers\key;..\easylogger\inc;..\Middle_Drivers\laser</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1264,6 +1264,11 @@
               <FileName>Key.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Middle_Drivers\key\Key.c</FilePath>
+            </File>
+            <File>
+              <FileName>laser.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middle_Drivers\laser\laser.c</FilePath>
             </File>
           </Files>
         </Group>
