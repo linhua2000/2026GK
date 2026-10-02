@@ -36,6 +36,10 @@
 #include "kinematics.h"
 #include "odometry.h"
 #include <stdio.h>
+/* EasyLogger：LOG_TAG / LOG_LVL 必须先于 <elog.h> 定义 */
+#define LOG_TAG    "MAIN"
+#define LOG_LVL    ELOG_LVL_VERBOSE
+#include <elog.h>
 #include "SCServo.h"
 #include "receive.h"
 #include "OLED.h"
@@ -131,7 +135,18 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   
-  UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
+  // UART1_Send_Str((uint8_t *)"Car System Ready!  cmd: #N v  |  #a v1 v2 v3 v4\r\n");
+
+  /* ===== EasyLogger 初始化（同步输出到 USART1/蓝牙口 115200）===== */
+  elog_init();
+  /* enabled_fmt_set 默认全 0，必须逐级显式开；只开 LVL|TAG|TIME */
+  elog_set_fmt(ELOG_LVL_ASSERT,  ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_ERROR,   ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_WARN,    ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_INFO,    ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_DEBUG,   ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_start();
   Encoder_Init();                                 /* 启动四路编码器计数 */
   Motor_Init();                                   /* 启动四路电机 PWM 输出 */
   Key_Init();                                     /* 四个按键（PC5/PE7/PE0/PE8，上拉） */
@@ -182,6 +197,9 @@ int main(void)
    LED_Off(2);
    LED_Off(3);
    LED_Off(4);
+
+  /* EasyLogger 上电验证日志（等蓝牙连上后再发） */
+  log_i("system boot ok, tick=%lu", (unsigned long)HAL_GetTick());
   while (1)
   {
     uint8_t txbuf[128];
@@ -189,54 +207,30 @@ int main(void)
 	
 //	  Motor_Load(100,0,0,0);
 //	  Motor_Load(100,-100,+100,-100);
-//   len = sprintf((char *)txbuf,
-//                 "E1:%d  E2:%d "
-//                 "E3:%d  E4:%d\r\n",
-//                 (int)Encoder_GetDelta(ENC_WHEEL1),
-//                 (int)Encoder_GetDelta(ENC_WHEEL2),
-//                 (int)Encoder_GetDelta(ENC_WHEEL3),
-//                 (int)Encoder_GetDelta(ENC_WHEEL4));
+//    /* --- 旧写法（sprintf + UART1_Send_Buf）已废弃，改为 elog 写法 ---
+//   len = sprintf((char *)txbuf, "E1:%d  E2:%d E3:%d  E4:%d\r\n",
+//                 (int)Encoder_GetDelta(ENC_WHEEL1), (int)Encoder_GetDelta(ENC_WHEEL2),
+//                 (int)Encoder_GetDelta(ENC_WHEEL3), (int)Encoder_GetDelta(ENC_WHEEL4));
 //   UART1_Send_Buf(txbuf, (uint16_t)len);
-
-	  // //轮1
-	  // len = sprintf((char *)txbuf,
-		// 			"%d,%d,%d\r\n",
-		// 			(int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0]);
-	  // UART1_Send_Buf(txbuf, (uint16_t)len);
-
-	  // //轮2
-    // len = sprintf((char *)txbuf,
-    //       "%d,%d,%d\r\n",
-    //       (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1]);
-    // UART1_Send_Buf(txbuf, (uint16_t)len);
-    // //轮3
-    // len = sprintf((char *)txbuf,
-    //       "%d,%d,%d\r\n",
-    //       (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2]);
-    // UART1_Send_Buf(txbuf, (uint16_t)len);
-//    //轮4
-//    len = sprintf((char *)txbuf,
-//          "%d,%d,%d\r\n",
+//     --- 新写法：一条 log_i 直接打出，不用 txbuf/len --- */
+//
+//    log_i("E1:%d E2:%d E3:%d E4:%d",
+//          (int)Encoder_GetDelta(ENC_WHEEL1), (int)Encoder_GetDelta(ENC_WHEEL2),
+//          (int)Encoder_GetDelta(ENC_WHEEL3), (int)Encoder_GetDelta(ENC_WHEEL4));
+//
+//    log_i("T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
+//          "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d",
+//          (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
+//          (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
+//          (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
 //          (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
-//    UART1_Send_Buf(txbuf, (uint16_t)len);
-
-//	   len = sprintf((char *)txbuf,
-//                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
-//                  "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d\r\n",
-//                  (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
-//                  (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
-//                  (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
-//                  (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
-//    UART1_Send_Buf(txbuf, (uint16_t)len);
-	  
-//      Debug_Poll();   /* 20ms 回传 T/E/P，内部自带计时 */
-
-      /* HWT905 示例（要看时取消注释）：数据由 USART3 中断直接填进
-       * Ax/Ay/Az/Gx/Gy/Gz/Roll/Pitch/Yaw。取消注释后请把上面那行 Debug_Poll()
-       * 也一并关掉，否则两者会抢同一条蓝牙口 */
-      /* sprintf((char *)txbuf, "A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f\r\n",
-                 Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
-      UART1_Send_Str(txbuf); */
+//
+//    /* Debug_Poll() 见 app/control.c（已改为 elog 写法） */
+//
+//    /* HWT905 示例：取消注释后要把上面 Debug_Poll 关掉，两者抢同一条蓝牙口。
+//     * 注意 %f 会拉入浮点 printf（多几 KB flash、更吃栈），建议改定点 (int)(Yaw*100) */
+//    log_i("A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f",
+//          Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
     
 		if (Key_Check(KEY_1, KEY_SINGLE))
 		{

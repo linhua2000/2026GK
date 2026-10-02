@@ -10,6 +10,11 @@
 #include "PID.h"
 #include <stdio.h>
 
+/* EasyLogger：LOG_TAG / LOG_LVL 必须先于 <elog.h> 定义 */
+#define LOG_TAG    "CTRL"
+#define LOG_LVL    ELOG_LVL_VERBOSE
+#include <elog.h>
+
 /* volatile 的理由见 control.h */
 volatile int32_t Debug_Target[DEBUG_WHEEL_NUM] = {0, 0, 0, 0};
 volatile int32_t Debug_Pwm[DEBUG_WHEEL_NUM]    = {0, 0, 0, 0};
@@ -104,29 +109,23 @@ void Debug_RxByte(uint8_t b)
     else s_cmd_drop = 1;               /* 超长：整行作废（只丢尾巴会让长行的尾部被误解析） */
 }
 
-///* ================= 20ms 回传 ================= */
+///* ================= 20ms 回传（已改为 elog 写法） ================= */
 //void Debug_Poll(void)
 //{
-////    static uint32_t s_tick = 0;
-//    uint8_t txbuf[160];
-////    uint32_t now = HAL_GetTick();
-//    int len;
-
-////    if ((uint32_t)(now - s_tick) < 20U) return;
-////    s_tick = now;
-
-//    /* 一次 sprintf 组整行，再 UART1_Send_Buf 一次性发。
-//     * 别用 UART1_Send_Str —— 它逐字节调 HAL_UART_Transmit，94 字节=94 次函数调用，
-//     * 且每字节都带 100ms 超时。Send_Buf 是单次调用、单次超时。
-//     * 全是 %d，不碰 %f（本工程 %f 从未被链接过，会多带几 KB 进来）。 */
-//    len = sprintf((char *)txbuf,
-//                  "T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
-//                  "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d\r\n",
-//                  (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
-//                  (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
-//                  (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
-//                  (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
-//    UART1_Send_Buf(txbuf, (uint16_t)len);
+//    static uint32_t s_tick = 0;
+//    uint32_t now = HAL_GetTick();
+//
+//    if ((uint32_t)(now - s_tick) < 20U) return;
+//    s_tick = now;
+//
+//    /* 全是 %d，不碰 %f（本工程浮点 printf 从未链接过）。
+//     * elog 自己组行并阻塞发到 USART1，不再需要 txbuf/sprintf/UART1_Send_Buf。 */
+//    log_i("T1:%d E1:%d P1:%d T2:%d E2:%d P2:%d "
+//          "T3:%d E3:%d P3:%d T4:%d E4:%d P4:%d",
+//          (int)Debug_Target[0], (int)Encoder_GetDelta(ENC_WHEEL1), (int)Debug_Pwm[0],
+//          (int)Debug_Target[1], (int)Encoder_GetDelta(ENC_WHEEL2), (int)Debug_Pwm[1],
+//          (int)Debug_Target[2], (int)Encoder_GetDelta(ENC_WHEEL3), (int)Debug_Pwm[2],
+//          (int)Debug_Target[3], (int)Encoder_GetDelta(ENC_WHEEL4), (int)Debug_Pwm[3]);
 //}
 
 /* ================= 里程计路径状态机 =================
