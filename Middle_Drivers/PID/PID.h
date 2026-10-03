@@ -31,4 +31,8 @@ extern volatile uint8_t sim_ball_stable;    /* KEY_3 第一次: 球稳定 */
 extern volatile uint8_t sim_bucket_stable;  /* KEY_3 第二次: 桶稳定 */
 void Hold_Action_Update(void);
 
+/* 激光打靶测试(KEY_4 触发, 与运动系统无关) */
+extern volatile uint8_t test_laser_run;
+void Laser_Track_Test(void);
+
 #endif

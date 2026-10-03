@@ -160,5 +160,17 @@ void OLED_ShowStatus(void)
     OLED_ShowString(0, 40, "Yaw:", OLED_6X8);
     OLED_ShowSignedFloat(36, 40, Yaw, 2, OLED_6X8);
 
+    /* 视觉收到的球帧数据 D8 x y num1 */
+    OLED_ShowString(0, 48, "V:", OLED_6X8);
+    OLED_ShowSigned(18, 48, vision_data.grab_x, OLED_6X8);
+    OLED_ShowSigned(66, 48, vision_data.grab_y, OLED_6X8);
+    OLED_ShowNum(108, 48, vision_data.num1, 1, OLED_6X8);
+
+    /* 视觉收到的二维码帧数据 A5 x y z */
+    OLED_ShowString(0, 56, "Q:", OLED_6X8);
+    OLED_ShowSigned(18, 56, vision_data.qr_x, OLED_6X8);
+    OLED_ShowSigned(48, 56, vision_data.qr_y, OLED_6X8);
+    OLED_ShowSigned(78, 56, vision_data.qr_z, OLED_6X8);
+
     OLED_Update();
 }

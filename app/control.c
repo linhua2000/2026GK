@@ -241,7 +241,8 @@ static void StateMachine_Update(void)
         break;
     case SM_HOLD7:
         Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE8;
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 3; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part3 追靶+激光+舵机 */
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE8; }
         break;
 
     case SM_MOVE8:      /* 继续右移到 y<-1450（x 按住 2600） */

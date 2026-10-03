@@ -10,9 +10,10 @@
  *   二维码识别 : A5  x  y  z      5A   (5 字节) -> qr_x / qr_y / qr_z (int8)
  *   循迹       : B6  x  y         6B   (4 字节) -> track_x / track_y (int8)
  *   转弯       : C7  0            7C   (3 字节) -> turn_flag
- *   抓取       : D8  xL xH yL yH dL dH 8D   (8 字节) -> grab_x / grab_y / grab_dist (int16, 小端)
+ *   抓取(球)   : D8  xL xH yL yH num1 8D   (7 字节) -> grab_x / grab_y / num1 (x/y int16 小端)
+ *   识别(桶)   : D8  xL xH yL yH 8D        (6 字节) -> grab_x / grab_y (x/y int16 小端)
  *
- * 注: 抓取帧坐标为 int16(2字节, 低字节在前); 其余字段为单字节 int8。
+ * 注: D8 帧长度可变: 第6字节是 8D -> 桶(6字节); 否则是 num1 -> 球(7字节)。
  */
 #define FRAME_QR_HEAD     0xA5
 #define FRAME_QR_TAIL     0x5A
@@ -28,10 +29,10 @@
 
 #define FRAME_GRAB_HEAD   0xD8
 #define FRAME_GRAB_TAIL   0x8D
-#define FRAME_GRAB_LEN    8   /* D8 + x(int16) + y(int16) + d(int16) + 8D */
+#define FRAME_GRAB_LEN    6   /* D8 + x(int16) + y(int16) + 8D (桶); 球帧7字节带num1 */
 
 /* 所有帧中最大的字节数, 用于接收缓冲 */
-#define FRAME_MAX_LEN     8
+#define FRAME_MAX_LEN     7
 
 /* 半包超时时间(ms), 超过则认为之前的半截包作废 */
 #define VISION_RX_TIMEOUT 50
