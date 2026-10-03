@@ -41,4 +41,7 @@ void Debug_Poll(void);
 /* OLED 显示用：状态机当前状态名 */
 const char * Control_GetStateName(void);
 
+/* 主循环里调；把状态机 / 收发 / 里程计坐标 / 偏航角打一行到 LOG（蓝牙口 USART1） */
+void line_test_debug(void);
+
 #endif

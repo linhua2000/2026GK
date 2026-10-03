@@ -5,6 +5,8 @@
 #include "mailuncontrol.h"
 #include "kinematics.h"
 #include "odometry.h"
+#include "receive.h"
+#include "jy61p.h"
 #include "uart1.h"
 #include "key.h"
 #include "PID.h"
@@ -161,6 +163,120 @@ typedef enum {
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
 
+//路线test
+static void line_test(void)
+{
+    switch (sm_phase)
+    {
+    case SM_IDLE:
+        Set_Vel(0, 0, 0);
+        /* 等陀螺仪出帧：ready 之前 odometry.x/y 恒为 0，这时候起步第一段会多走一截 */
+        if (!odometry.ready) return;
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE1;
+        break;
+
+    case SM_MOVE1:      /* 前进到 x>650（y 按住 0） */
+        //	Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
+        break;
+    case SM_HOLD1:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE2;
+        break;
+
+    case SM_MOVE2:      /* 左移到 y>650（x 按住 650） */
+        Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+        break;
+    case SM_HOLD2:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE3;
+        break;
+
+    case SM_MOVE3:      /* 前进到 x>1630（y 按住 650） */
+        //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 1630.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
+        break;
+    case SM_HOLD3:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE4;
+        break;
+
+    case SM_MOVE4:      /* 左移到 y>1500（x 按住 1630） */
+        Set_Vel(Pos_X(1630.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y > 1500.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
+        break;
+    case SM_HOLD4:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE5;
+        break;
+
+    case SM_MOVE5:      /* 前进到 x>2600（y 按住 1500） */
+        //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(100,Pos_Y(1500,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 2600.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
+        break;
+    case SM_HOLD5:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE6;
+        break;
+
+    case SM_MOVE6:      /* 右移到 y<850（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < 850.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
+        break;
+    case SM_HOLD6:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE7;
+        break;
+
+    case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < -840.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }
+        break;
+    case SM_HOLD7:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE8;
+        break;
+
+    case SM_MOVE8:      /* 继续右移到 y<-1450（x 按住 2600） */
+        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.y < -1450.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
+        break;
+    case SM_HOLD8:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE9;
+        break;
+
+    case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
+        //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x < 1520.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
+        break;
+    case SM_HOLD9:
+        Set_Vel(0, 0, 0);
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE10;
+        break;
+
+    case SM_MOVE10:     /* 后退到 x<-50（y 按住 -1450） */
+        //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x < -50.0f) sm_phase = SM_DONE;
+        break;
+
+    case SM_DONE:
+        Set_Vel(0, 0, 0);               /* 停住，不再动 */
+        break;
+    }
+}
+
 static void StateMachine_Update(void)
 {
     switch (sm_phase)
@@ -312,7 +428,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * 这段必须在 Exp_Speed_Cal() 之前，写的 Set_Vel 才当拍生效。 */
         if (flag_Numdelay && KeyNum == 1)
         {
-			StateMachine_Update();
+            ///单路线调试
+            line_test();
+            //(加机械臂全层调试)
+			// StateMachine_Update();
+
 //			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
 //			Set_Vel(Pos_X(0,odometry.x),100,0);     
@@ -380,3 +500,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //  MOVE9  后退 vx=-100，y 环压住 -1450  -> x<1520  停
 //  MOVE10 后退 vx=-100，y 环压住 -1450  -> x<-50   停
 //终止：SM_DONE，Set_Vel(0,0,0)。SM_DONE 没有出口，重跑要复位。
+
+//line_test() 是单路线调试，StateMachine_Update() 是全层调试（含机械臂抓球放桶）。
+//line_test_debug() 是单路线调试debug 
+
+//把状态机状态 + 收发状态 + 里程计坐标 + 偏航角刷新到LOG
+/* 本工程不链接浮点 printf(见文件头注释), 浮点一律定点化后按 %d 打:
+ * X/Y 单位 0.1mm, θ/Yaw 单位 0.01°。 */
+void line_test_debug(void)
+{
+    log_i("ST:%s TX:%02X RX:%d X:%d Y:%d T:%d Yaw:%d",
+          Control_GetStateName(),           /* 状态机状态名, 如 "MOVE2" */
+          (unsigned)vision_data.last_tx_cmd,/* 最近发出的命令字节 */
+          (int)vision_data.rx_status,       /* 0=未收到A5 1=收到 */
+          (int)(odometry.x * 10.0f),        /* 里程计 X, 0.1mm */
+          (int)(odometry.y * 10.0f),        /* 里程计 Y, 0.1mm */
+          (int)(odometry.theta * 100.0f),   /* 里程计航向 θ, 0.01° */
+          (int)(Yaw * 100.0f));             /* 陀螺仪偏航角, 0.01° */
+}
