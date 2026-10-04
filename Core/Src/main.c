@@ -232,7 +232,7 @@ int main(void)
 //     * 注意 %f 会拉入浮点 printf（多几 KB flash、更吃栈），建议改定点 (int)(Yaw*100) */
 //    log_i("A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f",
 //          Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
-    
+//    laser_On();
 		if (Key_Check(KEY_1, KEY_SINGLE))
 		{
 			KeyNum ^= 1;              /* 0 <-> 1 跑停翻转 */
@@ -252,11 +252,16 @@ int main(void)
         }
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
-           laser_Toggle();
+           /* 激光打靶测试: 按一下开, 再按关 */
+           test_laser_run ^= 1;
+           if (!test_laser_run) laser_Off();
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */
     Hold_Action_Update();
+
+    /* 激光打靶测试(独立于运动系统) */
+    Laser_Track_Test();
 
     uint32_t now = HAL_GetTick();
 

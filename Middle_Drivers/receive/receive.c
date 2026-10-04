@@ -7,7 +7,7 @@
 volatile VisionData_t vision_data = {0};
 
 static uint8_t  rx_byte = 0;             /* 中断接收到的单字节 */
-static uint8_t  rx_buf[FRAME_MAX_LEN];   /* 接收缓冲, 取最大帧长(抓取 6 字节) */
+static uint8_t  rx_buf[FRAME_MAX_LEN];   /* 接收缓冲, 取最大帧长(7 字节) */
 static uint8_t  rx_idx = 0;              /* 已填充字节数 */
 static uint8_t  rx_len = 0;              /* 当前帧期望长度, 由帧头决定 */
 static uint32_t rx_last_tick = 0;        /* 最后一字节的 tick */
@@ -56,12 +56,14 @@ static void dispatch_frame(void)
             vision_data.turn_flag = 1;
             break;
         case FRAME_GRAB_HEAD:
-            /* 小端 int16: 低字节在前, 高字节在后 */
             vision_data.grab_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
             vision_data.grab_y = (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8));
-            vision_data.grab_dist = (int16_t)(rx_buf[5] | ((uint16_t)rx_buf[6] << 8));
-            vision_data.num1 = (uint8_t)vision_data.grab_dist;   /* 球帧第三字段现在是 num1(1-3) */
-            vision_data.grab_flag = 1;
+            if (rx_len == 7) {           /* 球帧: D8 x y num1 8D */
+                vision_data.num1 = rx_buf[5];
+                vision_data.grab_flag = 1;
+            } else {                     /* 桶帧: D8 x y 8D (6字节) */
+                vision_data.track_flag = 1;
+            }
             break;
         default:
             break;
@@ -93,6 +95,13 @@ static void feed_byte(uint8_t ch)
 
     /* 状态2: 填充包体 */
     rx_buf[rx_idx++] = ch;
+
+    /* D8 帧长度可变: 6字节=桶(D8 x y 8D), 7字节=球(D8 x y num1 8D)。
+     * 收满前6字节后, 若第6字节不是帧尾 8D, 说明是带 num1 的球帧, 延长到 7。 */
+    if (rx_buf[0] == FRAME_GRAB_HEAD && rx_idx == 6 && rx_buf[5] != FRAME_GRAB_TAIL) {
+        rx_len = 7;
+    }
+
     if (rx_idx < rx_len) {
         return;    /* 还没收满, 继续等下一字节 */
     }
