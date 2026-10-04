@@ -298,7 +298,7 @@ static void StateMachine_Update(void)
 
     case SM_MOVE1:      /* 前进到 x>650（y 按住 0） */
         //	Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+		Set_Vel(160,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
         if (odometry.x > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
         break;
     case SM_HOLD1:
@@ -308,49 +308,58 @@ static void StateMachine_Update(void)
         break;
 
     case SM_MOVE2:      /* 左移到 y>650（x 按住 650） */
-        Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(650.0,odometry.x),160,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+        if (odometry.y > 580.0f) { sm_t = HAL_GetTick(); sm_phase = SM_MOVE2_ADJUST; }
         break;
+		
+    case SM_MOVE2_ADJUST:      /* 左移到 y>650（x 按住 650） */
+        Set_Vel(Pos_X(750.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 750.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+        break;
+
     case SM_HOLD2:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE3;
+        Set_Vel(Pos_X(750.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) 
+		{sm_phase = SM_MOVE3;}//
         break;
 
     case SM_MOVE3:      /* 前进到 x>1630（y 按住 650） */
         //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+		Set_Vel(100,Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
         if (odometry.x > 1630.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
         break;
+
     case SM_HOLD3:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE4;
+        Set_Vel(Pos_X(1630.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE4;}//
         break;
 
     case SM_MOVE4:      /* 左移到 y>1500（x 按住 1630） */
-        Set_Vel(Pos_X(1630.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(1630.0,odometry.x),110,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y > 1500.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
+        if (odometry.y > 1490.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
         break;
     case SM_HOLD4:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE5;
+         Set_Vel(Pos_X(1650.0,odometry.x),Pos_Y(1490,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE5;}//
         break;
 
     case SM_MOVE5:      /* 前进到 x>2600（y 按住 1500） */
         //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(100,Pos_Y(1500,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 2600.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
+		Set_Vel(150,Pos_Y(1490,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 2630.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
         break;
     case SM_HOLD5:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE6;
+        Set_Vel(Pos_X(2630.0,odometry.x),Pos_Y(1490,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE6;}//
         break;
 
     case SM_MOVE6:      /* 右移到 y<850（x 按住 2600） */
-        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(2630.0,odometry.x),-110,Pos_Yaw(-0.5,odometry.theta,-0.5)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < 850.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
+        if (odometry.y <860.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
         break;
     case SM_HOLD6:
         Set_Vel(0, 0, 0);
@@ -359,10 +368,11 @@ static void StateMachine_Update(void)
         break;
 
     case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
-        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(2625.0,odometry.x),-100,Pos_Yaw(-1.2,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
         if (odometry.y < -840.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }
         break;
+
     case SM_HOLD7:
         Set_Vel(0, 0, 0);
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 3; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part3 追靶+激光+舵机 */
@@ -370,29 +380,30 @@ static void StateMachine_Update(void)
         break;
 
     case SM_MOVE8:      /* 继续右移到 y<-1450（x 按住 2600） */
-        Set_Vel(Pos_X(2600.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(2620.0,odometry.x),-100,Pos_Yaw(-1.5,odometry.theta,0.1)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < -1450.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
+        if (odometry.y < -1400.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
         break;
     case SM_HOLD8:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE9;
+        Set_Vel(Pos_X(2505.0,odometry.x),Pos_Y( -1500,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE9;}//
         break;
 
     case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
         //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x < 1520.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
+		Set_Vel(-100,Pos_Y(-1495,odometry.y),Pos_Yaw(0.40,odometry.theta,0.0)); //角度,y不变移动x
+        if (odometry.x < 1500.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
         break;
     case SM_HOLD9:
-        Set_Vel(0, 0, 0);
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE10;
+        Set_Vel(Pos_X(1530.0,odometry.x),Pos_Y( -1500,odometry.y),Pos_Yaw(0.50,odometry.theta,0)); //角度,x不变移动y
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }
         break;
 
     case SM_MOVE10:     /* 后退到 x<-50（y 按住 -1450） */
         //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(-100,Pos_Y(-1450,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x < -50.0f) sm_phase = SM_DONE;
+		Set_Vel(-100,Pos_Y(-1500,odometry.y),Pos_Yaw(0.40,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x < 80.0f) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
@@ -436,10 +447,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * 这段必须在 Exp_Speed_Cal() 之前，写的 Set_Vel 才当拍生效。 */
         if (flag_Numdelay && KeyNum == 1)
         {
-            ///单路线调试
-            line_test();
+            //单路线调试
+            // line_test();
             //(加机械臂全层调试)
-			// StateMachine_Update();
+			StateMachine_Update();
 
 //			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x

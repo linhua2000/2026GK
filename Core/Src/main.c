@@ -252,16 +252,15 @@ int main(void)
         }
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
-           /* 激光打靶测试: 按一下开, 再按关 */
-           test_laser_run ^= 1;
-           if (!test_laser_run) laser_Off();
+           vision_data.qr_z = 3;   /* 假装扫到二维码, 第三位=1 */
+           hold_action_id = 4;
+           hold_action_state = HOLD_ACTION_RUN;
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */
     Hold_Action_Update();
 
-    /* 激光打靶测试(独立于运动系统) */
-    Laser_Track_Test();
+    // Laser_Track_Test();   /* 激光打靶测试(用的时候取消注释) */
 
     uint32_t now = HAL_GetTick();
 
