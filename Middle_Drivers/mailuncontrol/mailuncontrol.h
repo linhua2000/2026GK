@@ -50,10 +50,10 @@ int Velocity_Wheel4(float Target, int encoder);
  * 注意：调用周期直接决定 Ki 和积分限幅的量级，下面是按「5ms 调一次」估的。 */
 #define Pos_Kp_X      2.0f      /* 1/s：100mm 误差 -> 200mm/s */
 #define Pos_Ki_X      0.02f
-#define Pos_Kp_Y      2.0f
+#define Pos_Kp_Y      2.5f
 #define Pos_Ki_Y      0.02f
-#define Pos_Kp_Yaw    0.07f      /* rad/(s·deg)：10deg 误差 -> 0.7rad/s ≈ 40deg/s；约 14deg 顶到 Pos_W_Max */
-#define Pos_Ki_Yaw    0.0f
+#define Pos_Kp_Yaw    0.10f      /* rad/(s·deg)：10deg 误差 -> 0.7rad/s ≈ 40deg/s；约 14deg 顶到 Pos_W_Max */
+#define Pos_Ki_Yaw    0.000005f
 
 /* 积分累计量限幅（单位：mm·拍 / deg·拍）。yaw 单独给 —— 误差是 deg、x/y 是 mm，
  * 两者量级差得多，共用同一个值会让积分项顶到输出上限。 */
