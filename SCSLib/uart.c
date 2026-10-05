@@ -52,4 +52,23 @@ void Uart_Send(uint8_t *buf , uint8_t len)
 	HAL_UART_Transmit(&huart2, buf, len, UART_TX_TIMEOUT_MS);
 }
 
+/* 使能 USART2 RXNE 接收中断(在 MX_USART2_UART_Init 之后调用一次) */
+void Uart_Init(void)
+{
+	__HAL_UART_ENABLE_IT(&huart2, UART_IT_RXNE);
+}
+
+/* USART2 接收中断: RXNE 时把字节写进环形缓冲 uartBuf */
+void Uart_RxISR(void)
+{
+	if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_RXNE) != RESET) {
+		uint8_t ch = (uint8_t)(huart2.Instance->DR & 0xFF);
+		uartBuf[tail] = ch;
+		tail = (tail + 1) % 128;
+		if (tail == head) {              /* 缓冲区满, 丢最旧字节 */
+			head = (head + 1) % 128;
+		}
+	}
+}
+
 

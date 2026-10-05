@@ -4,6 +4,7 @@
 #include "jy61p.h"
 #include "odometry.h"
 #include "control.h"
+#include "SCServo.h"
 
 /* 显示带符号十进制数(无前导零), 如 +5 / -640 */
 static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSize)
@@ -136,6 +137,7 @@ void OLED_ShowOdom(void)
 /* 把状态机状态 + 收发状态 + 里程计坐标 + 偏航角刷新到 OLED */
 void OLED_ShowStatus(void)
 {
+    int16_t s1, s3;
     OLED_Clear();
 
     /* 状态机当前状态 */
@@ -166,11 +168,15 @@ void OLED_ShowStatus(void)
     OLED_ShowSigned(66, 48, vision_data.grab_y, OLED_6X8);
     OLED_ShowNum(108, 48, vision_data.num1, 1, OLED_6X8);
 
-    /* 视觉收到的二维码帧数据 A5 x y z */
-    OLED_ShowString(0, 56, "Q:", OLED_6X8);
-    OLED_ShowSigned(18, 56, vision_data.qr_x, OLED_6X8);
-    OLED_ShowSigned(48, 56, vision_data.qr_y, OLED_6X8);
-    OLED_ShowSigned(78, 56, vision_data.qr_z, OLED_6X8);
+    /* 舵机实际位置 S1(Y) S3(X) (暂时替换二维码行) */
+    s1 = (int16_t)ReadPos(1);
+    s3 = (int16_t)ReadPos(3);
+    if (s1 < 0) s1 = 0;
+    if (s3 < 0) s3 = 0;
+    OLED_ShowString(0, 56, "S1:", OLED_6X8);
+    OLED_ShowNum(24, 56, (uint32_t)s1, 4, OLED_6X8);
+    OLED_ShowString(60, 56, "S3:", OLED_6X8);
+    OLED_ShowNum(84, 56, (uint32_t)s3, 4, OLED_6X8);
 
     OLED_Update();
 }

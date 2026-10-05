@@ -42,6 +42,7 @@
 #define LOG_LVL    ELOG_LVL_VERBOSE
 #include <elog.h>
 #include "SCServo.h"
+#include "uart.h"
 #include "receive.h"
 #include "OLED.h"
 #include "oled_ui.h"
@@ -164,6 +165,7 @@ int main(void)
 
   /* XY 舵机 PID 控制初始化 */
   Servo_PID_Init();
+  Uart_Init();   /* 使能舵机 USART2 接收中断, ReadPos 才能读到位置 */
 
   /* OLED 初始化 */
   OLED_Init();

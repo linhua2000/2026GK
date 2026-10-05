@@ -8,7 +8,7 @@
 #include "stm32f4xx.h"
 #include "uart.h"
 
-uint32_t IOTimeOut = 5; // 通信超时
+uint32_t IOTimeOut = 10000; // 通信超时
 uint8_t wBuf[128];
 uint8_t wLen = 0;
 
