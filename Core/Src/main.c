@@ -234,7 +234,7 @@ int main(void)
 //     * 注意 %f 会拉入浮点 printf（多几 KB flash、更吃栈），建议改定点 (int)(Yaw*100) */
 //    log_i("A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f",
 //          Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
-//    laser_On();
+    //laser_On();
 		if (Key_Check(KEY_1, KEY_SINGLE))
 		{
 			KeyNum ^= 1;              /* 0 <-> 1 跑停翻转 */
