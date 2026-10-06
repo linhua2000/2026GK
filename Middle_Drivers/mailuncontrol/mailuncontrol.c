@@ -112,6 +112,9 @@ static float s_err_lp_x,   s_err_sum_x;
 static float s_err_lp_y,   s_err_sum_y;
 static float s_err_lp_yaw, s_err_sum_yaw;
 
+/* 定义在文件末尾；此处前置声明，避免隐式声明（C99 起是错误） */
+static float Angle_ShortestError(float target, float current);
+
 float Pos_X(float Target, float pos_x)
 {
 	float err, err_lp;
@@ -151,7 +154,7 @@ float Pos_Yaw(float Target, float pos_theta, float Yaw)
 
 	/* 误差是 deg，输出直接就是 rad/s，所以 Kp 的单位是 rad/(s·deg) ——
 	 * 和 x/y 的 1/s 不是同一量纲，数值别横向比。 */
-	err    = (Target - pos_theta);
+	err    = Angle_ShortestError(Target, pos_theta);
 	err_lp = (1.0f - Pos_A_Yaw) * err + Pos_A_Yaw * s_err_lp_yaw;
 	s_err_lp_yaw = err_lp;
 
@@ -160,4 +163,20 @@ float Pos_Yaw(float Target, float pos_theta, float Yaw)
 
 	return Get_MiMx(Pos_Kp_Yaw * err_lp + Pos_Ki_Yaw * s_err_sum_yaw,
 	                -Pos_W_Max, Pos_W_Max);
+}
+
+/**********************************************************************
+ * @brief  将角度误差归一化到 [-180°, +180°], 确保走最短路径
+ * @param  target  目标角度 (度, 任意值)
+ * @param  current 当前角度 (度, 任意值)
+ * @return float   最短路径误差: + = 需要顺时针转, - = 需要逆时针转
+ * @note   例: target=90, current=-170 → 误差 = -100° (逆时针转100° 而非顺转260°)
+ **********************************************************************/
+static float Angle_ShortestError(float target, float current)
+{
+    float err = target - current;
+    /* 映射到 (-180, +180] */
+    while (err >  180.0f) err -= 360.0f;
+    while (err < -180.0f) err += 360.0f;
+    return err;
 }
