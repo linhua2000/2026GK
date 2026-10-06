@@ -17,13 +17,13 @@
 
 /* ============ 舵机位置范围 ============ */
 #define SERVO_Y_MIN        1180   /* ID1: Y轴最上 */
-#define SERVO_Y_MAX        2770   /* ID1: Y轴最下 */
+#define SERVO_Y_MAX        3389   /* ID1: Y轴最下 */
 #define SERVO_X_MIN        0      /* ID3: X轴无限制, 全范围兜底 */
 #define SERVO_X_MAX        4095   /* ID3: X轴无限制, 全范围兜底 */
 
 /* ============ 开机初始位置 ============ */
-#define SERVO_Y_INIT       2600   /* ID1: Y轴开机位置 */
-#define SERVO2_INIT        1871   /* ID2: 肘回缩/初始位 */
+#define SERVO_Y_INIT       3389   /* ID1: Y轴开机位置 */
+#define SERVO2_INIT        1974   /* ID2: 肘回缩/初始位 */
 #define SERVO_X_INIT       950    /* ID3: X轴开机位置 */
 #define SERVO4_INIT        2543   /* ID4: 夹爪初始位置 */
 
@@ -37,33 +37,11 @@
 #define SERVO_ACC          0
 
 /* ============ HOLD 段动作(part1: HOLD1 握手+复位) ============ */
-#define HOLD1_SERVO1_POS       2770   /* 舵机1 Y */
-#define HOLD1_SERVO2_POS       1505   /* 舵机2 肘 */
+#define HOLD1_SERVO1_POS       3389   /* 舵机1 Y */
+#define HOLD1_SERVO2_POS       1383   /* 舵机2 肘 */
 #define HOLD1_SERVO3_POS       950    /* 舵机3 X */
 #define HOLD1_SERVO4_POS       2543   /* 舵机4 夹爪 */
 #define HOLD1_WAIT_MS          500    /* 相邻舵机到位延时(可调) */
-
-/* ============ HOLD 段动作(part2: HOLD6 追球抓球+追桶放桶) ============ */
-#define HOLD2_WAIT_MS          500    /* part2 每步到位延时(可调) */
-#define X_TURN_WAIT_MS         9000   /* 舵机3(X轴)转桶位后的到位延时, 比 HOLD2_WAIT_MS 长一倍 */
-/* 按 num1 的抓球位置 */
-#define GRAB_S1_N1             1790   /* num1==1 舵机1 */
-#define GRAB_S2_N1             651    /* num1==1 舵机2 */
-#define GRAB_S1_N2             2080   /* num1==2 舵机1 */
-#define GRAB_S2_N2             746    /* num1==2 舵机2 */
-#define GRAB_S1_N3             1790   /* num1==3 舵机1 */
-#define GRAB_S2_N3             640    /* num1==3 舵机2 */
-/* 后续固定位置 */
-#define GRAB4_POS              1790   /* 夹爪抓 */
-#define GRAB4_SPEED            60     /* 夹爪抓取速度(其余舵机保持原速) */
-#define ELBOW_MID              1925
-#define X_BUCKET               3050
-#define Y_TRACE_BUCKET         2080
-#define Y_BUCKET               2087
-#define ELBOW_PLACE            976
-#define GRIP_OPEN              2543   /* 夹爪开 */
-#define Y_FINAL1               2551
-#define X_FINAL                976
 
 /* ============ HOLD 段动作(part3: HOLD7 追靶+激光+舵机) ============ */
 #define TARGET_SERVO1_POS      2753   /* 舵机1 Y */
@@ -94,8 +72,15 @@
 #define GRAB_STABLE_CNT   8      /* 连续稳定多少帧触发 */
 
 /* ============ 视觉误差x -> 小车左右速度(part2 夹小球) ============ */
-#define VISION_CAR_VY_KP    (0.8f)  /* px -> mm/s 增益(负, 与舵机3同符号), 现场调 */
+#define VISION_CAR_VY_KP    (0.8f)  /* px -> mm/s 增益, 现场调 */
 #define VISION_CAR_VY_MAX   80.0f   /* 左右速度限幅 mm/s */
+
+/* ============ part2 夹小球 固定位姿 ============ */
+#define GRAB_S1_APPROACH    2951   /* 舵机1: 摆姿态(粗定位) */
+#define GRAB_S2_APPROACH    670    /* 舵机2: 摆姿态 */
+#define GRAB_S1_FINAL       2698   /* 舵机1: y校准稳定后的抓取高度 */
+#define GRAB_S4_GRIP        1695   /* 舵机4: 夹爪抓 */
+#define GRAB_S2_LIFT        1559   /* 舵机2: 抓完抬起 */
 
 /* ============ 通用 PID ============ */
 void Control_PID_Init(PID_Controller_t *pid, float kp, float ki, float kd,
@@ -207,16 +192,18 @@ static void car_vy_stop(void)
     vision_car_track_enable = 0;
 }
 
-/* 夹小球追踪: X误差 -> 小车左右(vy), Y误差 -> 舵机1, 舵机3(X)固定950不动 */
-static void track_xy_err_car(int16_t ex, int16_t ey)
+/* 小车x对准: 视觉x误差 -> 小车左右速度(vy); 舵机3固定950不动 */
+static void car_x_track(int16_t ex)
 {
-    /* X轴 -> 小车左右(vy): 与舵机3同符号(负增益), 对应 control.c 注释 +vy左 -vy右 */
     vision_car_vy = VISION_CAR_VY_KP * (float)ex;
     if (vision_car_vy >  VISION_CAR_VY_MAX) vision_car_vy =  VISION_CAR_VY_MAX;
     if (vision_car_vy < -VISION_CAR_VY_MAX) vision_car_vy = -VISION_CAR_VY_MAX;
     vision_car_track_enable = 1;
+}
 
-    /* Y轴 -> 舵机1 (与原逻辑一致) */
+/* 舵机1 y校准: 视觉y误差 -> 舵机1 (PID微调) */
+static void servo_y_track(int16_t ey)
+{
     PID_Compute(&pid_control_y, (float)ey);
     servo_pos_y += pid_control_y.output;
     if (servo_pos_y < SERVO_Y_MIN) servo_pos_y = SERVO_Y_MIN;
@@ -237,14 +224,16 @@ static int check_stable(int16_t ex, int16_t ey)
     return 0;
 }
 
-/* 按 num1 取出抓球时舵机1/舵机2 的目标位置 */
-static void grab_pos_by_num1(int16_t *s1, int16_t *s2)
+/* 单轴稳定判定: 连续 GRAB_STABLE_CNT 帧在阈值内(x对准用x, y校准用y) */
+static int check_stable_axis(int16_t e, int16_t thresh)
 {
-    switch (vision_data.num1) {
-    case 1:  *s1 = GRAB_S1_N1; *s2 = GRAB_S2_N1; break;
-    case 2:  *s1 = GRAB_S1_N2; *s2 = GRAB_S2_N2; break;
-    default: *s1 = GRAB_S1_N3; *s2 = GRAB_S2_N3; break;  /* num1==3 */
+    if (e >= -thresh && e <= thresh) {
+        stable_cnt++;
+        if (stable_cnt >= GRAB_STABLE_CNT) return 1;
+    } else {
+        stable_cnt = 0;
     }
+    return 0;
 }
 
 /* 按 num1 取出抓人质时舵机1/舵机2 的目标位置 */
@@ -336,171 +325,81 @@ void Hold_Action_Update(void)
         return;
     }
 
-    /* ---- part2(测试1: 夹小球): 发 B6 02 -> 追球(x->车, y->舵机1, 舵机3=950) -> 抓球 ----
-     * 放小球(抬球+识别桶+放桶)是下一个测试, 原序列保留在下方的 step5~18 */
+    /* ---- part2(夹小球): 先x对准 -> 摆姿态 -> y校准 -> 抓 -> 抬 ----
+     * 串行: 先只动车追x(舵机1不动), 再只动舵机1追y; 舵机3固定950; 固定位姿 */
     if (hold_action_id == 2) {
         switch (step) {
-        case 0:                                  /* 发 B6 02 6B 要球 */
+        case 0:                                  /* 发 B6 02 6B 要球 + 初始位 */
             Vision_Send_B6(0x02);
             vision_data.grab_flag = 0;
             vision_data.track_flag = 0;
             pid_control_y.error_last = 0.0f;
             pid_control_y.intergral = 0.0f;
             stable_cnt = 0;
-            // car_vy_stop();                       /* 确保小车左右不动 */
+//            car_vy_stop();
             WritePosEx(SERVO_X_ID, (int16_t)SERVO_X_INIT, SERVO_SPEED_X, SERVO_ACC);  /* 舵机3固定950 */
             servo_pos_x = SERVO_X_INIT;
+            WritePosEx(SERVO4_ID, (int16_t)SERVO4_INIT, SERVO4_SPEED, SERVO_ACC);     /* 夹爪开2543 */
             step = 1;
             break;
-        case 1:                                  /* 等球/追球: x->车, y->舵机1 */
+        case 1:                                  /* 小车x对准(只动车) */
             if (sim_ball_stable) {
                 sim_ball_stable = 0;
-                // car_vy_stop();
-                step = 2;                        /* 模拟稳定, 直接抓 */
+//                car_vy_stop();
+                step = 2;                        /* 模拟x稳, 直接摆姿态 */
             } else if (vision_data.grab_flag) {
                 vision_data.grab_flag = 0;
-                track_xy_err_car(vision_data.grab_x, vision_data.grab_y);
-                if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
-                    // car_vy_stop();               /* 稳定 -> 小车停, 舵机1保持 */
+                car_x_track(vision_data.grab_x);
+                if (check_stable_axis(vision_data.grab_x, GRAB_STABLE_X)) {
+//                    car_vy_stop();               /* x稳 -> 车停 */
+                    vision_car_vy=0.0f;
                     step = 2;
                 }
             }
             break;
-        case 2:                                  /* 舵机1 按 num1 */
-            grab_pos_by_num1(&s1, &s2);
-            WritePosEx(SERVO_Y_ID, s1, SERVO_SPEED_Y, SERVO_ACC);
-            servo_pos_y = s1;
+        case 2:                                  /* 摆姿态: 舵机1 -> 2345 */
+            WritePosEx(SERVO_Y_ID, (int16_t)GRAB_S1_APPROACH, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = GRAB_S1_APPROACH;
             t = HAL_GetTick();
             step = 3;
             break;
-        case 3:                                  /* 舵机2 按 num1 */
-            grab_pos_by_num1(&s1, &s2);
-            if (servo_reached(SERVO_Y_ID, s1) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, s2, SERVO2_SPEED, SERVO_ACC);
+        case 3:                                  /* 舵机2 -> 651, 并清y PID */
+            if (servo_reached(SERVO_Y_ID, GRAB_S1_APPROACH) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)GRAB_S2_APPROACH, SERVO2_SPEED, SERVO_ACC);
+                pid_control_y.error_last = 0.0f;
+                pid_control_y.intergral = 0.0f;
+                stable_cnt = 0;
                 t = HAL_GetTick();
                 step = 4;
             }
             break;
-        case 4:                                  /* 舵机4 夹爪抓 -> 测试结束 */
-            grab_pos_by_num1(&s1, &s2);
-            if (servo_reached(SERVO2_ID, s2) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)GRAB4_POS, GRAB4_SPEED, SERVO_ACC);
-                hold_action_state = HOLD_ACTION_DONE;
-                step = 0;
+        case 4:                                  /* y校准: 舵机1 用 vision y PID 微调 */
+            if (vision_data.grab_flag) {
+                vision_data.grab_flag = 0;
+                servo_y_track(vision_data.grab_y);
+                if (check_stable_axis(vision_data.grab_y, GRAB_STABLE_Y)) {
+                    step = 5;                    /* y稳 -> 抓 */
+                }
             }
             break;
-        /* ---- 下方 step5~18 为原放小球序列(抬肘->转桶->B6 03->放桶), 下一个测试再用 ----
-         * 夹小球测试在 step4 抓完即结束; 放小球测试时把上面 step4 的 DONE 改回 step=5 即可进入。 */
-        case 5:                                  /* 2 -> 1925 抬肘 */
-            if (servo_reached(SERVO4_ID, GRAB4_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, (int16_t)ELBOW_MID, SERVO2_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                vision_car_track_enable=0;  /* 小车左右停 */
-                step = 6;
-            }
+        case 5:                                  /* 舵机1 -> 2048 (抓取高度) */
+            WritePosEx(SERVO_Y_ID, (int16_t)GRAB_S1_FINAL, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = GRAB_S1_FINAL;
+            t = HAL_GetTick();
+            step = 6;
             break;
-        case 6:                                  /* 3 -> 3050 */
-            if (servo_reached(SERVO2_ID, ELBOW_MID) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)X_BUCKET, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = X_BUCKET;
+        case 6:                                  /* 夹爪4 -> 1695 抓 (舵机2保持651) */
+            if (servo_reached(SERVO_Y_ID, GRAB_S1_FINAL) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO4_ID, (int16_t)GRAB_S4_GRIP, SERVO4_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 7;
             }
             break;
-        case 7:                                  /* 4 -> 2075 爪夹开一下 */
-            if (servo_reached(SERVO_X_ID, X_BUCKET) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)2075, SERVO4_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 8;
-            }
-            break;
-        case 8:                                  /* 4 -> 1790 爪夹关一下 */
-            if (servo_reached(SERVO4_ID, 2075) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)GRAB4_POS, SERVO4_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 9;
-            }
-            break;
-        case 9:                                  /* 1 -> Y_TRACE_BUCKET (先等X轴转到桶位) */
-            if (servo_reached(SERVO4_ID, GRAB4_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_Y_ID, (int16_t)Y_TRACE_BUCKET, SERVO_SPEED_Y, SERVO_ACC);
-                servo_pos_y = Y_TRACE_BUCKET;
-                t = HAL_GetTick();
-                step = 10;
-            }
-            break;
-        case 10:                                 /* 发 B6 03 6B 要桶 */
-            Vision_Send_B6(0x03);
-            vision_data.track_flag = 0;
-            pid_control_x.error_last = 0.0f;
-            pid_control_x.intergral = 0.0f;
-            pid_control_y.error_last = 0.0f;
-            pid_control_y.intergral = 0.0f;
-            stable_cnt = 0;
-            step = 11;
-            break;
-        case 11:                                 /* 放桶 (暂时注释追桶PID, 写死直接进序列) */
-            /* ---- 暂时注释: 等桶/追桶 PID ----
-            if (sim_bucket_stable) {
-                sim_bucket_stable = 0;
-                step = 12;                       // 模拟稳定, 舵机3保持不变
-            } else if (vision_data.track_flag) {
-                vision_data.track_flag = 0;
-                track_xy_err(vision_data.grab_x, vision_data.grab_y);
-                if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
-                    step = 12;                   // 稳定后3不变(不写舵机3)
-                }
-            }
-            */
-            step = 12;                           /* 写死: 直接进放桶序列 */
-            break;
-        case 12:                                 /* 1 -> Y_BUCKET */
-            WritePosEx(SERVO_Y_ID, (int16_t)Y_BUCKET, SERVO_SPEED_Y, SERVO_ACC);
-            servo_pos_y = Y_BUCKET;
-            t = HAL_GetTick();
-            step = 13;
-            break;
-        case 13:                                 /* 2 -> ELBOW_PLACE */
-            if (servo_reached(SERVO_Y_ID, Y_BUCKET) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, (int16_t)ELBOW_PLACE, SERVO2_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 14;
-            }
-            break;
-        case 14:                                 /* 4 -> GRIP_OPEN */
-            if (servo_reached(SERVO2_ID, ELBOW_PLACE) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)GRIP_OPEN, SERVO4_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 15;
-            }
-            break;
-        case 15:                                 /* 2 -> 1790 */
-            if (servo_reached(SERVO4_ID, GRIP_OPEN) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, 1790, SERVO2_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 16;
-            }
-            break;
-        case 16:                                 /* 1 -> Y_FINAL1 */
-            if (servo_reached(SERVO2_ID, 1790) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_Y_ID, (int16_t)Y_FINAL1, SERVO_SPEED_Y, SERVO_ACC);
-                servo_pos_y = Y_FINAL1;
-                t = HAL_GetTick();
-                step = 17;
-            }
-            break;
-        case 17:                                 /* 3 -> X_FINAL */
-            if (servo_reached(SERVO_Y_ID, Y_FINAL1) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)X_FINAL, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = X_FINAL;
-                t = HAL_GetTick();
-                step = 18;
-            }
-            break;
-        case 18:                                 /* 4 -> GRIP_OPEN, 完成 */
-            if (servo_reached(SERVO_X_ID, X_FINAL) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)GRIP_OPEN, SERVO4_SPEED, SERVO_ACC);
+        case 7:                                  /* 舵机2 -> 1559 抬起, 完成 */
+            if (servo_reached(SERVO4_ID, GRAB_S4_GRIP) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)GRAB_S2_LIFT, SERVO2_SPEED, SERVO_ACC);
                 hold_action_state = HOLD_ACTION_DONE;
+				vision_car_track_enable = 0;
                 step = 0;
             }
             break;
