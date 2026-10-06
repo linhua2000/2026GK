@@ -194,6 +194,31 @@ static float Angle_ShortestError(float target, float current)
 
 // 	return PWM_out;
 //     /* X轴 -> 小车左右(vy): 与舵机3同符号(负增益), 对应 control.c 注释 +vy左 -vy右 */
-    
+
 
 // }
+
+/* ============ 视觉误差 -> 小车前后速度(vx) ============
+ * 仿 PID.c 里 track_xy_err_car 的左右(vy)写法: 比例增益 + 限幅。
+ * 误差入参自己传(如 grab_y 或未来的 grab_dist)。 */
+#define VISION_CAR_VX_KP    (0.8f)   /* px -> mm/s 增益, 符号现场调 */
+#define VISION_CAR_VX_MAX   80.0f    /* 前后速度限幅 mm/s */
+
+volatile float   vision_car_vx = 0.0f;            /* mm/s, +前 -后 */
+volatile uint8_t vision_car_vx_track_enable = 0;  /* 1=视觉追踪中, 小车vx由视觉接管 */
+
+/* 停小车前后(退出视觉追踪) */
+void car_vx_stop(void)
+{
+    vision_car_vx = 0.0f;
+    vision_car_vx_track_enable = 0;
+}
+
+/* 追球前后: 误差 -> 小车前后(vx) */
+void track_err_car_vx(int16_t e)
+{
+    vision_car_vx = VISION_CAR_VX_KP * (float)e;
+    if (vision_car_vx >  VISION_CAR_VX_MAX) vision_car_vx =  VISION_CAR_VX_MAX;
+    if (vision_car_vx < -VISION_CAR_VX_MAX) vision_car_vx = -VISION_CAR_VX_MAX;
+    vision_car_vx_track_enable = 1;
+}
