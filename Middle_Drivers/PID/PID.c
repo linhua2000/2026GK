@@ -78,6 +78,10 @@
 #define GRAB_STABLE_Y     20     /* Y误差阈值(像素), 可调 */
 #define GRAB_STABLE_CNT   8      /* 连续稳定多少帧触发 */
 
+/* 激光打靶专用稳定阈值(比球/桶更严) */
+#define LASER_STABLE_X      5    /* 激光 X误差阈值(像素) */
+#define LASER_STABLE_Y      5    /* 激光 Y误差阈值(像素) */
+
 /* ============ 视觉误差x -> 小车左右速度(part2 夹小球) ============ */
 #define VISION_CAR_VY_KP    (0.8f)  /* px -> mm/s 增益, 现场调 */
 #define VISION_CAR_VY_KP_PLACE   (-VISION_CAR_VY_KP)  /* 放桶: 机械臂往后看, 小车左右方向与球相反 */
@@ -147,8 +151,10 @@ float PID_Compute(PID_Controller_t *pid, float y_error)
 }
 
 /* ============ XY 舵机控制 ============ */
-static PID_Controller_t pid_control_x;
-static PID_Controller_t pid_control_y;
+static PID_Controller_t pid_control_x;   /* 原 X 轴(保留) */
+static PID_Controller_t pid_control_y;   /* 球/桶/人质 Y 轴(servo_y_track 用) */
+static PID_Controller_t pid_laser_x;     /* 激光 X 轴(track_xy_err 用) */
+static PID_Controller_t pid_laser_y;     /* 激光 Y 轴(track_xy_err 用) */
 
 static float servo_pos_x = SERVO_X_INIT;   /* 累加的舵机绝对位置 */
 static float servo_pos_y = SERVO_Y_INIT;
@@ -174,8 +180,10 @@ void Servo_PID_Init(void)
     EnableTorque(4, 1);
 
     /* Kp/Ki/Kd 现场调; 输出=每帧位置增量 */
-    Control_PID_Init(&pid_control_x, -0.32f, 0.0f, 0.0f, -5000.0f, 5000.0f);
-    Control_PID_Init(&pid_control_y, -0.25f, 0.0f, 0.0f, -5000.0f, 5000.0f);
+    Control_PID_Init(&pid_control_x, -0.32f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 原 X(保留) */
+    Control_PID_Init(&pid_control_y, -0.25f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 球/桶/人质, 不变 */
+    Control_PID_Init(&pid_laser_x, -0.5f,  0.0f, 0.0f, -5000.0f, 5000.0f);  /* 激光 X, 从 -0.32 提到 -0.8 */
+    Control_PID_Init(&pid_laser_y, -0.25f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 激光 Y, 不变 */
 
     servo_pos_x = SERVO_X_INIT;
     servo_pos_y = SERVO_Y_INIT;
@@ -192,15 +200,15 @@ void Servo_PID_Init(void)
 static void track_xy_err(int16_t ex, int16_t ey)
 {
     /* X轴 -> 舵机3 */
-    PID_Compute(&pid_control_x, (float)ex);
-    servo_pos_x += pid_control_x.output;
+    PID_Compute(&pid_laser_x, (float)ex);
+    servo_pos_x += pid_laser_x.output;
     if (servo_pos_x < SERVO_X_MIN) servo_pos_x = SERVO_X_MIN;
     if (servo_pos_x > SERVO_X_MAX) servo_pos_x = SERVO_X_MAX;
     WritePosEx(SERVO_X_ID, (int16_t)servo_pos_x, SERVO_SPEED_X, SERVO_ACC);
 
     /* Y轴 -> 舵机1 */
-    PID_Compute(&pid_control_y, (float)ey);
-    servo_pos_y += pid_control_y.output;
+    PID_Compute(&pid_laser_y, (float)ey);
+    servo_pos_y += pid_laser_y.output;
     if (servo_pos_y < SERVO_Y_MIN) servo_pos_y = SERVO_Y_MIN;
     if (servo_pos_y > SERVO_Y_MAX) servo_pos_y = SERVO_Y_MAX;
     WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED_Y, SERVO_ACC);
@@ -232,11 +240,11 @@ static void servo_y_track(int16_t ey)
     WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED_Y, SERVO_ACC);
 }
 
-/* 判稳定: 误差连续 GRAB_STABLE_CNT 帧在阈值内 */
+/* 判稳定(激光): 误差连续 GRAB_STABLE_CNT 帧在阈值内 */
 static int check_stable(int16_t ex, int16_t ey)
 {
-    if (ex >= -GRAB_STABLE_X && ex <= GRAB_STABLE_X &&
-        ey >= -GRAB_STABLE_Y && ey <= GRAB_STABLE_Y) {
+    if (ex >= -LASER_STABLE_X && ex <= LASER_STABLE_X &&
+        ey >= -LASER_STABLE_Y && ey <= LASER_STABLE_Y) {
         stable_cnt++;
         if (stable_cnt >= GRAB_STABLE_CNT) return 1;
     } else {
@@ -526,10 +534,10 @@ void Hold_Action_Update(void)
         case 0:                                  /* 发 B6 04 6B 要靶心 */
             Vision_Send_B6(0x04);
             vision_data.track_flag = 0;
-            pid_control_x.error_last = 0.0f;
-            pid_control_x.intergral = 0.0f;
-            pid_control_y.error_last = 0.0f;
-            pid_control_y.intergral = 0.0f;
+            pid_laser_x.error_last = 0.0f;
+            pid_laser_x.intergral = 0.0f;
+            pid_laser_y.error_last = 0.0f;
+            pid_laser_y.intergral = 0.0f;
             stable_cnt = 0;
             step = 1;
             break;
@@ -686,8 +694,9 @@ volatile uint8_t test_laser_run = 0;
 
 void Laser_Track_Test(void)
 {
-    static uint8_t step     = 0;
-    static uint8_t last_run = 0;
+    static uint8_t  step     = 0;
+    static uint8_t  last_run = 0;
+    static uint32_t t        = 0;
 
     if (!test_laser_run) { last_run = 0; return; }
 
@@ -698,27 +707,57 @@ void Laser_Track_Test(void)
     }
 
     switch (step) {
-    case 0:                          /* 发 B6 04 6B 要靶心 */
-        Vision_Send_B6(0x04);
-        vision_data.track_flag = 0;
-        pid_control_x.error_last = 0.0f;
-        pid_control_x.intergral = 0.0f;
-        pid_control_y.error_last = 0.0f;
-        pid_control_y.intergral = 0.0f;
-        stable_cnt = 0;
+    case 0:                          /* 准备瞄准激光: 舵机3 -> 950 */
+        WritePosEx(SERVO_X_ID, (int16_t)LASER_PREP_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+        servo_pos_x = LASER_PREP_S3_POS;
+        t = HAL_GetTick();
         step = 1;
         break;
-    case 1:                          /* 纯PID追靶, 稳定 -> 开激光 */
+    case 1:                          /* 舵机1 -> 3389 */
+        if (servo_reached(SERVO_X_ID, LASER_PREP_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            WritePosEx(SERVO_Y_ID, (int16_t)LASER_PREP_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = LASER_PREP_S1_POS;
+            t = HAL_GetTick();
+            step = 2;
+        }
+        break;
+    case 2:                          /* 舵机2 -> 1938 */
+        if (servo_reached(SERVO_Y_ID, LASER_PREP_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            WritePosEx(SERVO2_ID, (int16_t)LASER_PREP_S2_POS, SERVO2_SPEED, SERVO_ACC);
+            t = HAL_GetTick();
+            step = 3;
+        }
+        break;
+    case 3:                          /* 舵机4 -> 2543 */
+        if (servo_reached(SERVO2_ID, LASER_PREP_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            WritePosEx(SERVO4_ID, (int16_t)SERVO4_INIT, SERVO4_SPEED, SERVO_ACC);
+            t = HAL_GetTick();
+            step = 4;
+        }
+        break;
+    case 4:                          /* 发 B6 04 6B 要靶心 */
+        if (servo_reached(SERVO4_ID, SERVO4_INIT) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            Vision_Send_B6(0x04);
+            vision_data.track_flag = 0;
+            pid_laser_x.error_last = 0.0f;
+            pid_laser_x.intergral = 0.0f;
+            pid_laser_y.error_last = 0.0f;
+            pid_laser_y.intergral = 0.0f;
+            stable_cnt = 0;
+            step = 5;
+        }
+        break;
+    case 5:                          /* 纯PID追靶, 稳定 -> 开激光 */
         if (vision_data.track_flag) {
             vision_data.track_flag = 0;
             track_xy_err(vision_data.grab_x, vision_data.grab_y);
             if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
                 laser_On();
-                step = 2;
+                step = 6;
             }
         }
         break;
-    case 2:                          /* 继续追踪(激光开), 直到再按 KEY_4 关闭 */
+    case 6:                          /* 继续追踪(激光开), 直到再按 KEY_4 关闭 */
         if (vision_data.track_flag) {
             vision_data.track_flag = 0;
             track_xy_err(vision_data.grab_x, vision_data.grab_y);

@@ -233,8 +233,7 @@ int main(void)
 //    /* HWT905 示例：取消注释后要把上面 Debug_Poll 关掉，两者抢同一条蓝牙口。
 //     * 注意 %f 会拉入浮点 printf（多几 KB flash、更吃栈），建议改定点 (int)(Yaw*100) */
 //    log_i("A:%.3f %.3f %.3f G:%.2f %.2f %.2f RPY:%.2f %.2f %.2f",
-//          Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);
-    //laser_On();
+//          Ax, Ay, Az, Gx, Gy, Gz, Roll, Pitch, Yaw);    
 		if (Key_Check(KEY_1, KEY_SINGLE))
 		{
 			KeyNum ^= 1;              /* 0 <-> 1 跑停翻转 */
@@ -254,15 +253,16 @@ int main(void)
         }
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
-           vision_data.qr_z = 3;   /* 假装扫到二维码, 第三位=1 */
-           hold_action_id = 2;
-           hold_action_state = HOLD_ACTION_RUN;
+					laser_On();
+           /* 激光打靶测试: 按一下开, 再按关 */
+           test_laser_run ^= 1;
+           if (!test_laser_run) laser_Off();
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */
     Hold_Action_Update();
 
-    // Laser_Track_Test();   /* 激光打靶测试(用的时候取消注释) */
+    Laser_Track_Test();   /* 激光打靶测试(独立于运动系统) */
 
     uint32_t now = HAL_GetTick();
 
