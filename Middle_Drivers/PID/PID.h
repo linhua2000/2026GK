@@ -35,4 +35,7 @@ void Hold_Action_Update(void);
 extern volatile uint8_t test_laser_run;
 void Laser_Track_Test(void);
 
+/* 主循环里调；把四个舵机实际位置打一行到 LOG（蓝牙口 USART1） */
+void FT_test_debug(void);
+
 #endif

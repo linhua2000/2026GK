@@ -273,6 +273,7 @@ int main(void)
         // OLED_ShowGyro();   /* 陀螺仪页（Roll/Pitch/Yaw） */
         OLED_ShowStatus();   /* 状态/收发/坐标/偏航角页 */
         line_test_debug();   /* 同样这几项打一行到 LOG(蓝牙口) */
+        FT_test_debug();     /* 四个舵机实际位置打一行到 LOG(蓝牙口) */
     }
 
     /* LED1 闪烁: 每 500ms 翻转(亮500ms灭500ms) */

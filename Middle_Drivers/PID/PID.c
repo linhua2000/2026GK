@@ -4,6 +4,11 @@
 #include "laser.h"
 #include <math.h>
 
+/* elog：LOG_TAG / LOG_LVL 必须先于 <elog.h> 定义（同 control.c 的约定） */
+#define LOG_TAG    "SERVO"
+#define LOG_LVL    ELOG_LVL_VERBOSE
+#include <elog.h>
+
 /* ============ 舵机ID定义 ============ */
 #define SERVO_Y_ID     1      /* Y轴(上下/俯仰) */
 #define SERVO2_ID      2      /* 肘/伸缩轴 */
@@ -651,4 +656,11 @@ void Laser_Track_Test(void)
         }
         break;
     }
+}
+
+//打印每个舵机的一个位置
+void FT_test_debug(void)
+{
+    log_i("S1:%d S2:%d S3:%d S4:%d",
+          ReadPos(SERVO_Y_ID), ReadPos(SERVO2_ID), ReadPos(SERVO_X_ID), ReadPos(SERVO4_ID));
 }

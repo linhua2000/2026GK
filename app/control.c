@@ -307,7 +307,7 @@ static void StateMachine_Update(void)
         if (odometry.x > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
         break;
     case SM_HOLD1:
-        Set_Vel(0, 0, 0);
+       Set_Vel(Pos_X(650.0,odometry.x), Pos_Y(0,odometry.y), Pos_Yaw(0,odometry.theta,0));
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 握手+舵机复位 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }
         break;
@@ -369,9 +369,9 @@ static void StateMachine_Update(void)
         if (odometry.y <860.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
         break;
     case SM_HOLD6:
-        Set_Vel(0, 0, 0);
+         Set_Vel(Pos_X(2644.0,odometry.x),Pos_Y(860,odometry.y),Pos_Yaw(1,odometry.theta,0)); //角度,x不变移动y
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 2; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part2 追球抓球+追桶放桶 */
-        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE7; }
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0;  }//sm_phase = SM_MOVE7;
         break;
 
     case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
@@ -381,7 +381,7 @@ static void StateMachine_Update(void)
         break;
 
     case SM_HOLD7:
-        Set_Vel(0, 0, 0);
+        Set_Vel(Pos_X(2643.0,odometry.x),Pos_Y(-840,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 3; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part3 追靶+激光+舵机 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE8; }
         break;
@@ -403,7 +403,7 @@ static void StateMachine_Update(void)
         if (odometry.x < 1650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
         break;
     case SM_HOLD9:
-        Set_Vel(Pos_X(1530.0,odometry.x),Pos_Y( -1500,odometry.y),Pos_Yaw(0.50,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(1650.0,odometry.x),Pos_Y( -1508,odometry.y),Pos_Yaw(0.30,odometry.theta,0)); //角度,x不变移动y
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }
         break;
