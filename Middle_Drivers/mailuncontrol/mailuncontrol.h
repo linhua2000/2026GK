@@ -1,6 +1,8 @@
 #ifndef __MAILUNCONTROL_H
 #define __MAILUNCONTROL_H
 
+#include <stdint.h>      /* uint8_t / int16_t —— 下面导出要用 */
+
 /* 轮号 -> 实际轮位（接线时确认的，代码里推不出来 —— 调增益时对着这张表看）：
  *   Wheel1 = 左后 B轮   TIM1 编码器   PB14 PWM
  *   Wheel2 = 左前 A轮   TIM3 编码器   PB15 PWM
@@ -74,5 +76,12 @@ int Velocity_Wheel4(float Target, int encoder);
 float Pos_X(float Target, float pos_x);                   /* mm  -> mm/s */
 float Pos_Y(float Target, float pos_y);                   /* mm  -> mm/s */
 float Pos_Yaw(float Target, float pos_theta, float Yaw);  /* deg -> rad/s */
+
+/* 视觉误差 -> 小车前后速度(vx): 定义在 mailuncontrol.c */
+extern volatile float   vision_car_vx;            /* mm/s, +前 -后 */
+extern volatile uint8_t vision_car_vx_track_enable;
+
+void car_vx_stop(void);
+void track_err_car_vx(int16_t e);
 
 #endif
