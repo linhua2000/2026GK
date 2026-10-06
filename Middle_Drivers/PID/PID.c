@@ -94,8 +94,8 @@
 #define GRAB_STABLE_CNT   8      /* 连续稳定多少帧触发 */
 
 /* ============ 视觉误差x -> 小车左右速度(part2 夹小球) ============ */
-#define VISION_CAR_VY_KP    (-1.0f)  /* px -> mm/s 增益(负, 与舵机3同符号), 现场调 */
-#define VISION_CAR_VY_MAX   150.0f   /* 左右速度限幅 mm/s */
+#define VISION_CAR_VY_KP    (0.8f)  /* px -> mm/s 增益(负, 与舵机3同符号), 现场调 */
+#define VISION_CAR_VY_MAX   80.0f   /* 左右速度限幅 mm/s */
 
 /* ============ 通用 PID ============ */
 void Control_PID_Init(PID_Controller_t *pid, float kp, float ki, float kd,
@@ -347,7 +347,7 @@ void Hold_Action_Update(void)
             pid_control_y.error_last = 0.0f;
             pid_control_y.intergral = 0.0f;
             stable_cnt = 0;
-            car_vy_stop();                       /* 确保小车左右不动 */
+            // car_vy_stop();                       /* 确保小车左右不动 */
             WritePosEx(SERVO_X_ID, (int16_t)SERVO_X_INIT, SERVO_SPEED_X, SERVO_ACC);  /* 舵机3固定950 */
             servo_pos_x = SERVO_X_INIT;
             step = 1;
@@ -355,13 +355,13 @@ void Hold_Action_Update(void)
         case 1:                                  /* 等球/追球: x->车, y->舵机1 */
             if (sim_ball_stable) {
                 sim_ball_stable = 0;
-                car_vy_stop();
+                // car_vy_stop();
                 step = 2;                        /* 模拟稳定, 直接抓 */
             } else if (vision_data.grab_flag) {
                 vision_data.grab_flag = 0;
                 track_xy_err_car(vision_data.grab_x, vision_data.grab_y);
                 if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
-                    car_vy_stop();               /* 稳定 -> 小车停, 舵机1保持 */
+                    // car_vy_stop();               /* 稳定 -> 小车停, 舵机1保持 */
                     step = 2;
                 }
             }
@@ -395,6 +395,7 @@ void Hold_Action_Update(void)
             if (servo_reached(SERVO4_ID, GRAB4_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO2_ID, (int16_t)ELBOW_MID, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
+                vision_car_track_enable=0;  /* 小车左右停 */
                 step = 6;
             }
             break;
