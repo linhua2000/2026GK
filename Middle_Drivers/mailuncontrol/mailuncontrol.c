@@ -201,7 +201,7 @@ static float Angle_ShortestError(float target, float current)
 /* ============ 视觉误差 -> 小车前后速度(vx) ============
  * 仿 PID.c 里 track_xy_err_car 的左右(vy)写法: 比例增益 + 限幅。
  * 误差入参自己传(如 grab_y 或未来的 grab_dist)。 */
-#define VISION_CAR_VX_KP    (0.8f)   /* px -> mm/s 增益, 符号现场调 */
+#define VISION_CAR_VX_KP    (-0.4f)  /* px -> mm/s 增益, part4 车x: 反号+减半, 现场再调 */
 #define VISION_CAR_VX_MAX   80.0f    /* 前后速度限幅 mm/s */
 
 volatile float   vision_car_vx = 0.0f;            /* mm/s, +前 -后 */
