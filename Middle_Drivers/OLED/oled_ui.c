@@ -137,7 +137,7 @@ void OLED_ShowOdom(void)
 /* 把状态机状态 + 收发状态 + 里程计坐标 + 偏航角刷新到 OLED */
 void OLED_ShowStatus(void)
 {
-    int16_t s1, s3;
+    int16_t s1, s2, s3, s4;
     OLED_Clear();
 
     /* 状态机当前状态 */
@@ -162,21 +162,23 @@ void OLED_ShowStatus(void)
     OLED_ShowString(0, 40, "Yaw:", OLED_6X8);
     OLED_ShowSignedFloat(36, 40, Yaw, 2, OLED_6X8);
 
-    /* 视觉发的误差 D8 x y num */
-    OLED_ShowString(0, 48, "E:", OLED_6X8);
-    OLED_ShowSigned(18, 48, vision_data.grab_x, OLED_6X8);
-    OLED_ShowSigned(66, 48, vision_data.grab_y, OLED_6X8);
-    OLED_ShowNum(108, 48, vision_data.num1, 1, OLED_6X8);
-
-    /* 舵机实际位置 S1(Y) S3(X) (暂时替换二维码行) */
+    /* 舵机实际位置 S1..S4（占掉原来 E 误差行 + S1/S3 行两行） */
     s1 = (int16_t)ReadPos(1);
+    s2 = (int16_t)ReadPos(2);
     s3 = (int16_t)ReadPos(3);
+    s4 = (int16_t)ReadPos(4);
     if (s1 < 0) s1 = 0;
+    if (s2 < 0) s2 = 0;
     if (s3 < 0) s3 = 0;
-    OLED_ShowString(0, 56, "S1:", OLED_6X8);
-    OLED_ShowNum(24, 56, (uint32_t)s1, 4, OLED_6X8);
-    OLED_ShowString(60, 56, "S3:", OLED_6X8);
-    OLED_ShowNum(84, 56, (uint32_t)s3, 4, OLED_6X8);
+    if (s4 < 0) s4 = 0;
+    OLED_ShowString(0, 48, "S1:", OLED_6X8);
+    OLED_ShowNum(24, 48, (uint32_t)s1, 4, OLED_6X8);
+    OLED_ShowString(60, 48, "S2:", OLED_6X8);
+    OLED_ShowNum(84, 48, (uint32_t)s2, 4, OLED_6X8);
+    OLED_ShowString(0, 56, "S3:", OLED_6X8);
+    OLED_ShowNum(24, 56, (uint32_t)s3, 4, OLED_6X8);
+    OLED_ShowString(60, 56, "S4:", OLED_6X8);
+    OLED_ShowNum(84, 56, (uint32_t)s4, 4, OLED_6X8);
 
     OLED_Update();
 }

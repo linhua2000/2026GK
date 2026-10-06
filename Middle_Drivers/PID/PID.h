@@ -29,6 +29,11 @@ extern volatile uint8_t hold_action_state;  /* 状态机置 RUN, 动作完成后
 extern volatile uint8_t hold_action_id;     /* 0=无 1=part1(HOLD1) 2=part2(HOLD6) */
 extern volatile uint8_t sim_ball_stable;    /* KEY_3 第一次: 球稳定 */
 extern volatile uint8_t sim_bucket_stable;  /* KEY_3 第二次: 桶稳定 */
+
+/* 视觉误差x -> 小车左右速度指令(part2 夹小球): Hold_Action_Update 写入, control.c SM_HOLD6 读取 */
+extern volatile float   vision_car_vy;           /* mm/s, +左 -右 */
+extern volatile uint8_t vision_car_track_enable; /* 1=视觉追踪中, 小车vy由视觉接管 */
+
 void Hold_Action_Update(void);
 
 /* 激光打靶测试(KEY_4 触发, 与运动系统无关) */

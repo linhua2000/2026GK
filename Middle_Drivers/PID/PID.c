@@ -93,6 +93,10 @@
 #define GRAB_STABLE_Y     20     /* Y误差阈值(像素), 可调 */
 #define GRAB_STABLE_CNT   8      /* 连续稳定多少帧触发 */
 
+/* ============ 视觉误差x -> 小车左右速度(part2 夹小球) ============ */
+#define VISION_CAR_VY_KP    (-1.0f)  /* px -> mm/s 增益(负, 与舵机3同符号), 现场调 */
+#define VISION_CAR_VY_MAX   150.0f   /* 左右速度限幅 mm/s */
+
 /* ============ 通用 PID ============ */
 void Control_PID_Init(PID_Controller_t *pid, float kp, float ki, float kd,
                       float min_output, float max_output)
@@ -151,6 +155,10 @@ volatile uint8_t hold_action_id    = 0;    /* 0=无 1=part1(HOLD1) 2=part2(HOLD6
 volatile uint8_t sim_ball_stable   = 0;    /* KEY_3 第一次: 球稳定 */
 volatile uint8_t sim_bucket_stable = 0;    /* KEY_3 第二次: 桶稳定 */
 
+/* 视觉误差x -> 小车左右速度: track_xy_err_car 写入, control.c SM_HOLD6 读取 */
+volatile float   vision_car_vy = 0.0f;
+volatile uint8_t vision_car_track_enable = 0;
+
 void Servo_PID_Init(void)
 {
     /* 使能所有舵机扭矩(扭矩被关的话, 舵机收了位置指令也不会动) */
@@ -185,6 +193,30 @@ static void track_xy_err(int16_t ex, int16_t ey)
     WritePosEx(SERVO_X_ID, (int16_t)servo_pos_x, SERVO_SPEED_X, SERVO_ACC);
 
     /* Y轴 -> 舵机1 */
+    PID_Compute(&pid_control_y, (float)ey);
+    servo_pos_y += pid_control_y.output;
+    if (servo_pos_y < SERVO_Y_MIN) servo_pos_y = SERVO_Y_MIN;
+    if (servo_pos_y > SERVO_Y_MAX) servo_pos_y = SERVO_Y_MAX;
+    WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED_Y, SERVO_ACC);
+}
+
+/* 停小车左右(退出视觉追踪) */
+static void car_vy_stop(void)
+{
+    vision_car_vy = 0.0f;
+    vision_car_track_enable = 0;
+}
+
+/* 夹小球追踪: X误差 -> 小车左右(vy), Y误差 -> 舵机1, 舵机3(X)固定950不动 */
+static void track_xy_err_car(int16_t ex, int16_t ey)
+{
+    /* X轴 -> 小车左右(vy): 与舵机3同符号(负增益), 对应 control.c 注释 +vy左 -vy右 */
+    vision_car_vy = VISION_CAR_VY_KP * (float)ex;
+    if (vision_car_vy >  VISION_CAR_VY_MAX) vision_car_vy =  VISION_CAR_VY_MAX;
+    if (vision_car_vy < -VISION_CAR_VY_MAX) vision_car_vy = -VISION_CAR_VY_MAX;
+    vision_car_track_enable = 1;
+
+    /* Y轴 -> 舵机1 (与原逻辑一致) */
     PID_Compute(&pid_control_y, (float)ey);
     servo_pos_y += pid_control_y.output;
     if (servo_pos_y < SERVO_Y_MIN) servo_pos_y = SERVO_Y_MIN;
@@ -304,29 +336,33 @@ void Hold_Action_Update(void)
         return;
     }
 
-    /* ---- part2: HOLD6 发 B6 02 -> 追球抓球 -> 发 B6 03 -> 追桶放桶 ---- */
+    /* ---- part2(测试1: 夹小球): 发 B6 02 -> 追球(x->车, y->舵机1, 舵机3=950) -> 抓球 ----
+     * 放小球(抬球+识别桶+放桶)是下一个测试, 原序列保留在下方的 step5~18 */
     if (hold_action_id == 2) {
         switch (step) {
         case 0:                                  /* 发 B6 02 6B 要球 */
             Vision_Send_B6(0x02);
             vision_data.grab_flag = 0;
             vision_data.track_flag = 0;
-            pid_control_x.error_last = 0.0f;
-            pid_control_x.intergral = 0.0f;
             pid_control_y.error_last = 0.0f;
             pid_control_y.intergral = 0.0f;
             stable_cnt = 0;
+            car_vy_stop();                       /* 确保小车左右不动 */
+            WritePosEx(SERVO_X_ID, (int16_t)SERVO_X_INIT, SERVO_SPEED_X, SERVO_ACC);  /* 舵机3固定950 */
+            servo_pos_x = SERVO_X_INIT;
             step = 1;
             break;
-        case 1:                                  /* 等球/追球 */
+        case 1:                                  /* 等球/追球: x->车, y->舵机1 */
             if (sim_ball_stable) {
                 sim_ball_stable = 0;
-                step = 2;                        /* 模拟稳定, 直接抓(num1 已由按键置2) */
+                car_vy_stop();
+                step = 2;                        /* 模拟稳定, 直接抓 */
             } else if (vision_data.grab_flag) {
                 vision_data.grab_flag = 0;
-                track_xy_err(vision_data.grab_x, vision_data.grab_y);
+                track_xy_err_car(vision_data.grab_x, vision_data.grab_y);
                 if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
-                    step = 2;                    /* 稳定后不执行PID, 舵机3(x)保持不变 */
+                    car_vy_stop();               /* 稳定 -> 小车停, 舵机1保持 */
+                    step = 2;
                 }
             }
             break;
@@ -345,13 +381,16 @@ void Hold_Action_Update(void)
                 step = 4;
             }
             break;
-        case 4:                                  /* 4 -> 1730 (速度60) */
+        case 4:                                  /* 舵机4 夹爪抓 -> 测试结束 */
+            grab_pos_by_num1(&s1, &s2);
             if (servo_reached(SERVO2_ID, s2) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO4_ID, (int16_t)GRAB4_POS, GRAB4_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 5;
+                hold_action_state = HOLD_ACTION_DONE;
+                step = 0;
             }
             break;
+        /* ---- 下方 step5~18 为原放小球序列(抬肘->转桶->B6 03->放桶), 下一个测试再用 ----
+         * 夹小球测试在 step4 抓完即结束; 放小球测试时把上面 step4 的 DONE 改回 step=5 即可进入。 */
         case 5:                                  /* 2 -> 1925 抬肘 */
             if (servo_reached(SERVO4_ID, GRAB4_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO2_ID, (int16_t)ELBOW_MID, SERVO2_SPEED, SERVO_ACC);

@@ -255,7 +255,7 @@ int main(void)
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
            vision_data.qr_z = 3;   /* 假装扫到二维码, 第三位=1 */
-           hold_action_id = 4;
+           hold_action_id = 2;
            hold_action_state = HOLD_ACTION_RUN;
         }
 
