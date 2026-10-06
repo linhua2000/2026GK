@@ -180,3 +180,20 @@ static float Angle_ShortestError(float target, float current)
     while (err < -180.0f) err += 360.0f;
     return err;
 }
+
+// 视觉追踪小车左右速度控制在pid.c中202~225
+// static void track_xy_err_car(int16_t ex)
+// {
+
+// 	static int PWM_out;
+// 	static float Encoder_Err;
+// 	PWM_out = VISION_CAR_VY_KP * (float)ex;
+// 	if (vision_car_vy >  VISION_CAR_VY_MAX) vision_car_vy =  VISION_CAR_VY_MAX;
+//     if (vision_car_vy < -VISION_CAR_VY_MAX) vision_car_vy = -VISION_CAR_VY_MAX;    
+// 	vision_car_track_enable = 1;
+
+// 	return PWM_out;
+//     /* X轴 -> 小车左右(vy): 与舵机3同符号(负增益), 对应 control.c 注释 +vy左 -vy右 */
+    
+
+// }
