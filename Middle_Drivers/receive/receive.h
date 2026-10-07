@@ -9,7 +9,7 @@
  *
  *   二维码识别 : A5  x  y  z      5A   (5 字节) -> qr_x / qr_y / qr_z (int8)
  *   循迹       : B6  x  y         6B   (4 字节) -> track_x / track_y (int8)
- *   转弯       : C7  0            7C   (3 字节) -> turn_flag
+ *   转弯/矫正   : C7  X(int16) Y(int16)  7C   (6 字节) -> turn_x / turn_y
  *   抓取(球)   : D8  xL xH yL yH num1 8D   (7 字节) -> grab_x / grab_y / num1 (x/y int16 小端)
  *   识别(桶)   : D8  xL xH yL yH 8D        (6 字节) -> grab_x / grab_y (x/y int16 小端)
  *
@@ -25,7 +25,7 @@
 
 #define FRAME_TURN_HEAD   0xC7
 #define FRAME_TURN_TAIL   0x7C
-#define FRAME_TURN_LEN    3
+#define FRAME_TURN_LEN    6   /* C7 + X(int16,小端) + Y(int16,小端) + 7C */
 
 #define FRAME_GRAB_HEAD   0xD8
 #define FRAME_GRAB_TAIL   0x8D
@@ -52,10 +52,12 @@ typedef struct {
     int16_t grab_x;
     int16_t grab_y;
     int16_t grab_dist;    /* 相机到球直线距离(cm) */
+    int16_t turn_x;   /* 转弯/矫正帧 C7 的 X (四姐 angle_tenths, 角度已×10) */
+    int16_t turn_y;   /* 转弯/矫正帧 C7 的 Y (四姐 distance, 直线相对视觉中心的偏差) */
     /* 新帧标志 */
     uint8_t qr_flag;      /* 收到二维码帧 */
     uint8_t track_flag;   /* 收到循迹帧 */
-    uint8_t turn_flag;    /* 收到转弯帧 C7 0 7C, 需要转弯 */
+    uint8_t turn_flag;    /* 收到转弯/矫正帧 C7 X Y 7C */
     uint8_t grab_flag;    /* 收到抓取帧 */
     /* 收发状态(OLED) + 后续 part2/part4 字段 */
     uint8_t last_tx_cmd;  /* 最近发出的命令字节 (OLED TX) */

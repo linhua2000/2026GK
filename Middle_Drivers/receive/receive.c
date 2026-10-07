@@ -53,6 +53,8 @@ static void dispatch_frame(void)
             vision_data.track_flag = 1;
             break;
         case FRAME_TURN_HEAD:
+            vision_data.turn_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
+            vision_data.turn_y = (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8));
             vision_data.turn_flag = 1;
             break;
         case FRAME_GRAB_HEAD:

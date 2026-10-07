@@ -33,31 +33,31 @@ static void OLED_ShowSigned(int16_t X, int16_t Y, int32_t Number, uint8_t FontSi
 /* 把视觉收到的数据刷新到 OLED 显示 */
 void OLED_ShowVision(void)
 {
-    OLED_Clear(); 
+    int16_t s1, s2, s3, s4;
+    OLED_Clear();
 
-    /* 抓取 D8 x(int16) y(int16) 8D, 坐标为相对画面中心的误差 */
-    OLED_ShowString(0, 0, "GR:", OLED_6X8);
-    OLED_ShowSigned(24, 0, vision_data.grab_x, OLED_6X8);
-    OLED_ShowSigned(72, 0, vision_data.grab_y, OLED_6X8);
-
-    /* 循迹 B6 x y 6B */
-    OLED_ShowString(0, 8, "TR:", OLED_6X8);
-    OLED_ShowHexNum(24, 8, (uint8_t)vision_data.track_x, 2, OLED_6X8);
-    OLED_ShowHexNum(42, 8, (uint8_t)vision_data.track_y, 2, OLED_6X8);
-
-    /* 二维码 A5 x y z 5A */
-    OLED_ShowString(0, 16, "QR:", OLED_6X8);
-    OLED_ShowHexNum(24, 16, (uint8_t)vision_data.qr_x, 2, OLED_6X8);
-    OLED_ShowHexNum(42, 16, (uint8_t)vision_data.qr_y, 2, OLED_6X8);
-    OLED_ShowHexNum(60, 16, (uint8_t)vision_data.qr_z, 2, OLED_6X8);
-
-    /* 转弯 C7 0 7C */
-    OLED_ShowString(0, 24, "TN:", OLED_6X8);
-    OLED_ShowHexNum(24, 24, vision_data.turn_flag, 2, OLED_6X8);
-
-    /* 距离 D8 ... d 8D */
-    OLED_ShowString(0, 32, "DI:", OLED_6X8);
-    OLED_ShowSigned(24, 32, vision_data.grab_dist, OLED_6X8);
+    /* 转弯/矫正 C7 X Y 7C (X=角度, Y=距离) */
+    OLED_ShowString(0, 0, "Ang:", OLED_6X8);
+    OLED_ShowSigned(24, 0, vision_data.turn_x, OLED_6X8);
+    OLED_ShowString(0, 8, "Dis:", OLED_6X8);
+    OLED_ShowSigned(24, 8, vision_data.turn_y, OLED_6X8);
+    /* 舵机实际位置 S1..S4（占掉原来 E 误差行 + S1/S3 行两行） */
+    s1 = (int16_t)ReadPos(1);
+    s2 = (int16_t)ReadPos(2);
+    s3 = (int16_t)ReadPos(3);
+    s4 = (int16_t)ReadPos(4);
+    if (s1 < 0) s1 = 0;
+    if (s2 < 0) s2 = 0;
+    if (s3 < 0) s3 = 0;
+    if (s4 < 0) s4 = 0;
+    OLED_ShowString(0, 48, "S1:", OLED_6X8);
+    OLED_ShowNum(24, 48, (uint32_t)s1, 4, OLED_6X8);
+    OLED_ShowString(60, 48, "S2:", OLED_6X8);
+    OLED_ShowNum(84, 48, (uint32_t)s2, 4, OLED_6X8);
+    OLED_ShowString(0, 56, "S3:", OLED_6X8);
+    OLED_ShowNum(24, 56, (uint32_t)s3, 4, OLED_6X8);
+    OLED_ShowString(60, 56, "S4:", OLED_6X8);
+    OLED_ShowNum(84, 56, (uint32_t)s4, 4, OLED_6X8);
 
     OLED_Update();
 }
