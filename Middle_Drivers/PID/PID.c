@@ -63,7 +63,8 @@
 #define HOSTAGE_X_SWEEP_END    2875   /* 舵机3 X 巡视终点(起点950=激光复位后) */
 #define HOSTAGE_X_SWEEP_SPEED  3      /* 舵机3 巡视速度(慢, 给视觉时间检测) */
 #define HOSTAGE_SERVO_X_TARGET 1988   /* 舵机3 X 抓取目标位(视觉中心) */
-#define HOSTAGE_SERVO_TO_CAR_X_KP 0.05f /* 舵机count差值 -> 小车vx mm/s, 符号现场调 */
+#define HOSTAGE_SERVO_TO_CAR_X_KP 0.2f /* 舵机count差值 -> 小车vx mm/s, 符号现场调 */
+#define HOSTAGE_X_SERVO_KP      (-0.5f) /* 人质舵机X 视觉校准增益, 原 -0.32 太慢 */
 #define HOSTAGE_S1_GRAB        3078   /* 舵机1 Y 抓取高度 */
 #define HOSTAGE_S2_GRAB        1261   /* 舵机2 抓取位(肘), y稳定后 */
 #define HOSTAGE_GRIP_N1        1800   /* qr_z==1 舵机4 */
@@ -170,7 +171,7 @@ float PID_Compute(PID_Controller_t *pid, float y_error)
 }
 
 /* ============ XY 舵机控制 ============ */
-static PID_Controller_t pid_control_x;   /* 原 X 轴(保留) */
+static PID_Controller_t pid_control_x_hostage;  /* 人质 X 轴(servo_x_track 用, 单独增益) */
 static PID_Controller_t pid_control_y;   /* 球/桶/人质 Y 轴(servo_y_track 用) */
 static PID_Controller_t pid_laser_x;     /* 激光 X 轴(track_xy_err 用) */
 static PID_Controller_t pid_laser_y;     /* 激光 Y 轴(track_xy_err 用) */
@@ -199,7 +200,7 @@ void Servo_PID_Init(void)
     EnableTorque(4, 1);
 
     /* Kp/Ki/Kd 现场调; 输出=每帧位置增量 */
-    Control_PID_Init(&pid_control_x, -0.32f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 原 X(保留) */
+    Control_PID_Init(&pid_control_x_hostage, HOSTAGE_X_SERVO_KP, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 人质 X */
     Control_PID_Init(&pid_control_y, -0.25f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 球/桶/人质, 不变 */
     Control_PID_Init(&pid_laser_x, -0.5f,  0.0f, 0.0f, -5000.0f, 5000.0f);  /* 激光 X, 从 -0.32 提到 -0.8 */
     Control_PID_Init(&pid_laser_y, -0.25f, 0.0f, 0.0f, -5000.0f, 5000.0f);  /* 激光 Y, 不变 */
@@ -269,11 +270,11 @@ static void servo_y_track(int16_t ey)
     WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED_Y, SERVO_ACC);
 }
 
-/* 舵机3 x校准: 视觉x误差 -> 舵机3 (PID微调, 复用 pid_control_x) */
+/* 舵机3 x校准: 视觉x误差 -> 舵机3 (人质专用 PID: pid_control_x_hostage) */
 static void servo_x_track(int16_t ex)
 {
-    PID_Compute(&pid_control_x, (float)ex);
-    servo_pos_x += pid_control_x.output;
+    PID_Compute(&pid_control_x_hostage, (float)ex);
+    servo_pos_x += pid_control_x_hostage.output;
     if (servo_pos_x < SERVO_X_MIN) servo_pos_x = SERVO_X_MIN;
     if (servo_pos_x > SERVO_X_MAX) servo_pos_x = SERVO_X_MAX;
     WritePosEx(SERVO_X_ID, (int16_t)servo_pos_x, SERVO_SPEED_X, SERVO_ACC);
@@ -706,8 +707,8 @@ void Hold_Action_Update(void)
                 WritePosEx(SERVO_X_ID, (int16_t)HOSTAGE_X_SWEEP_END, HOSTAGE_X_SWEEP_SPEED, SERVO_ACC);
                 servo_pos_x = HOSTAGE_X_SWEEP_END;
                 vision_data.grab_flag = 0;
-                pid_control_x.error_last = 0.0f;   /* 舵机X PID 复位(Kp 由 Servo_PID_Init 设置) */
-                pid_control_x.intergral = 0.0f;
+                pid_control_x_hostage.error_last = 0.0f;   /* 人质舵机X PID 复位(Kp 由 Servo_PID_Init 设置) */
+                pid_control_x_hostage.intergral = 0.0f;
                 pid_control_y.error_last = 0.0f;
                 pid_control_y.intergral = 0.0f;
                 stable_cnt = 0;
