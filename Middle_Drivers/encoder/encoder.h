@@ -20,5 +20,6 @@ int32_t Encoder_GetTotal(uint8_t wheel);    /* 返回累计脉冲（里程计备
 
 /* 定义在 control.c。=1 时: 后轮不驱动(PWM=0 滑行) + 编码器用同侧前轮代替后轮。 */
 extern uint8_t No_rear_wheels;
+extern uint8_t No_front_wheels;  /* =1 时: 前轮不驱动(PWM=0 滑行) + 编码器用同侧后轮代替前轮。 */
 
 #endif

@@ -48,6 +48,15 @@ void Encoder_Update(void)
         s_delta[ENC_WHEEL1] = s_delta[ENC_WHEEL2];   /* 左后 = 左前 */
         s_delta[ENC_WHEEL4] = s_delta[ENC_WHEEL3];   /* 右后 = 右前 */
     }
+
+    /* 前轮打滑段: 只信后轮, 用同侧后轮代替前轮(左前=左后, 右前=右后)。
+     * 必须在循环之后 —— 循环里 s_delta[i] 会把这里的写覆盖掉。
+     * 注意不是清零: v1=v4=0 会让 odometry 的 vx/vy 减半。 */
+    if (No_front_wheels)
+    {
+        s_delta[ENC_WHEEL2] = s_delta[ENC_WHEEL1];   /* 左前 = 左后 */
+        s_delta[ENC_WHEEL3] = s_delta[ENC_WHEEL4];   /* 右前 = 右后 */
+    }
 }
 
 int32_t Encoder_GetDelta(uint8_t wheel)
