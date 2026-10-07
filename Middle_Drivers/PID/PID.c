@@ -571,34 +571,34 @@ void Hold_Action_Update(void)
                 step = 21;
             }
             break;
-        case 21:                                 /* 延时 500ms 后回 860 + 舵机3 -> 950(准备看激光) */
+        case 21:                                 /* 延时 500ms 后回 860 + 舵机2 -> 1938(准备看激光) */
             if (HAL_GetTick() - t >= RETURN_860_DELAY_MS) {
                 vision_car_track_enable = 0;     /* 退出左右追踪，SM_HOLD6 把车拉回 y=860 */
                 vision_car_vx_track_enable = 0;  /* 退出前后追踪，车拉回 x=2644 */
                 vision_car_vx = 0.0f;
-                WritePosEx(SERVO_X_ID, (int16_t)LASER_PREP_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = LASER_PREP_S3_POS;
+                WritePosEx(SERVO2_ID, (int16_t)LASER_PREP_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 22;
             }
             break;
-        case 22:                                 /* 舵机1 -> 3391 */
-            if (servo_reached(SERVO_X_ID, LASER_PREP_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_Y_ID, (int16_t)LASER_PREP_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
-                servo_pos_y = LASER_PREP_S1_POS;
+        case 22:                                 /* 舵机3 -> 950 */
+            if (servo_reached(SERVO2_ID, LASER_PREP_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)LASER_PREP_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = LASER_PREP_S3_POS;
                 t = HAL_GetTick();
                 step = 23;
             }
             break;
-        case 23:                                 /* 舵机2 -> 1938 */
-            if (servo_reached(SERVO_Y_ID, LASER_PREP_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, (int16_t)LASER_PREP_S2_POS, SERVO2_SPEED, SERVO_ACC);
+        case 23:                                 /* 舵机1 -> 3389 */
+            if (servo_reached(SERVO_X_ID, LASER_PREP_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_Y_ID, (int16_t)LASER_PREP_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+                servo_pos_y = LASER_PREP_S1_POS;
                 t = HAL_GetTick();
                 step = 24;
             }
             break;
-        case 24:                                 /* 舵机2 到位 -> 完成 */
-            if (servo_reached(SERVO2_ID, LASER_PREP_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+        case 24:                                 /* 舵机1 到位 -> 完成 */
+            if (servo_reached(SERVO_Y_ID, LASER_PREP_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
             }
