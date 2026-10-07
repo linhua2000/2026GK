@@ -286,14 +286,14 @@ static void line_test(void)
 
     case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
 		
-		Set_Vel(-100,0,Pos_Yaw(1.675,odometry.theta,0.0)); //角度,y不变移动x
+		Set_Vel(-100,0,Pos_Yaw(1.5,odometry.theta,0.0)); //角度,y不变移动x
 		//Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 //		Set_Vel(-100,Pos_Y(-1508,odometry.y),Pos_Yaw(4.8,odometry.theta,0.0)); //角度,y不变移动x
         if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
         break;
     case SM_HOLD9:
 //		Set_Vel(0, 0, 0);
-		Set_Vel(Pos_X(1649.0f+Slip_Offset,odometry.x),Pos_Y( -1514,odometry.y),Pos_Yaw(2.25,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(Pos_X(1649.0f+Slip_Offset,odometry.x),Pos_Y( -1509,odometry.y),Pos_Yaw(2.25,odometry.theta,0)); //角度,x不变移动y
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE10;}//
         break;
 
@@ -430,8 +430,8 @@ static void StateMachine_Update(void)
 
     case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
         //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(-100,0,Pos_Yaw(1.675,odometry.theta,0.0)); //角度,y不变移动x
-        if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
+		Set_Vel(-100,0,Pos_Yaw(1.5,odometry.theta,0.0)); //角度,y不变移动x
+        if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }//
         break;
     case SM_HOLD9:
         {
@@ -439,7 +439,7 @@ static void StateMachine_Update(void)
             if (vision_car_vx_track_enable) vx = vision_car_vx;                 /* x对准: 前后由视觉接管 */
             else                            vx = Pos_X(1649.0f+Slip_Offset, odometry.x);
             if (vision_car_track_enable)    vy = vision_car_vy;                 /* y补偿: 左右由视觉接管 */
-            else                            vy = Pos_Y(-1514, odometry.y);
+            else                            vy = Pos_Y(-1509, odometry.y);
             Set_Vel(vx, vy, Pos_Yaw(2.25, odometry.theta, 0));
         }
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
