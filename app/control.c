@@ -493,10 +493,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
          * 这段必须在 Exp_Speed_Cal() 之前，写的 Set_Vel 才当拍生效。 */
         if (flag_Numdelay && KeyNum == 1)
         {
+			
            //单路线调试
-           line_test();
+           //line_test();
            //(加机械臂全层调试)
-			//StateMachine_Update();
+			StateMachine_Update();
 
 //			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
