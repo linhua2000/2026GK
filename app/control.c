@@ -369,10 +369,13 @@ static void StateMachine_Update(void)
         if (odometry.y <860.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
         break;
     case SM_HOLD6:
-        if (vision_car_track_enable) {
-            Set_Vel(Pos_X(2644.0,odometry.x), vision_car_vy, Pos_Yaw(-1,odometry.theta,0)); /* 追踪中: 左右由视觉接管 */
-        } else {
-            Set_Vel(Pos_X(2644.0,odometry.x), Pos_Y(860,odometry.y), Pos_Yaw(-1,odometry.theta,0)); /* 原位置保持 */
+        {
+            float vx, vy;
+            if (vision_car_vx_track_enable) vx = vision_car_vx;                 /* y补偿: 前后由视觉接管 */
+            else                            vx = Pos_X(2644.0f, odometry.x);
+            if (vision_car_track_enable)    vy = vision_car_vy;                 /* x对准: 左右由视觉接管 */
+            else                            vy = Pos_Y(860.0f,  odometry.y);
+            Set_Vel(vx, vy, Pos_Yaw(-1.0f, odometry.theta, 0));
         }
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 2; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part2 追球抓球+追桶放桶 */
         if (hold_action_state == HOLD_ACTION_DONE) {  hold_action_id = 0;hold_action_state = HOLD_ACTION_IDLE;sm_phase = SM_MOVE7; } //
@@ -407,10 +410,13 @@ static void StateMachine_Update(void)
         if (odometry.x < 1650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }
         break;
     case SM_HOLD9:
-        if (vision_car_vx_track_enable) {
-            Set_Vel(vision_car_vx, Pos_Y(-1508.0, odometry.y), Pos_Yaw(0.30, odometry.theta, 0)); /* 追踪中: 前后由视觉接管 */
-        } else {
-            Set_Vel(Pos_X(1650.0, odometry.x), Pos_Y(-1508.0, odometry.y), Pos_Yaw(0.30, odometry.theta, 0)); /* 原位置保持 */
+        {
+            float vx, vy;
+            if (vision_car_vx_track_enable) vx = vision_car_vx;                 /* x对准: 前后由视觉接管 */
+            else                            vx = Pos_X(1650.0f, odometry.x);
+            if (vision_car_track_enable)    vy = vision_car_vy;                 /* y补偿: 左右由视觉接管 */
+            else                            vy = Pos_Y(-1508.0f, odometry.y);
+            Set_Vel(vx, vy, Pos_Yaw(0.30f, odometry.theta, 0));
         }
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }
