@@ -18,4 +18,7 @@ void    Encoder_Update(void);               /* 在 5ms 中断里调用：读四�
 int32_t Encoder_GetDelta(uint8_t wheel);    /* 返回本次 5ms 采样的脉冲增量 */
 int32_t Encoder_GetTotal(uint8_t wheel);    /* 返回累计脉冲（里程计备用） */
 
+/* 定义在 control.c。=1 时: 后轮不驱动(PWM=0 滑行) + 编码器用同侧前轮代替后轮。 */
+extern uint8_t No_rear_wheels;
+
 #endif

@@ -28,6 +28,9 @@ volatile uint8_t KeyNum = 0;
  * Timer 必须是 uint16_t —— uint8_t 最大 255、到 256 就回绕，`Timer > 300` 永远不成立。 */
 static uint8_t  flag_Numdelay;
 static uint16_t Timer;
+/* 后轮打滑段开关(定义在此, 由 encoder.h extern 出去): =1 时后轮不驱动 + 编码器
+ * 用同侧前轮代替后轮。默认 0 = 四轮正常。 */
+uint8_t  No_rear_wheels = 0;
 
 /* ================= 指令接收 =================
  * 收满一行就地解析。刻意不用 sscanf —— 这段跑在 USART1 中断里，
@@ -203,14 +206,18 @@ static void line_test(void)
 		{sm_phase = SM_MOVE3;}//
         break;
 
-    case SM_MOVE3:      /* 前进到 x>1630（y 按住 650） */
+    case SM_MOVE3:      /* 前进到 x>1630（y 按住 650）; 本段后轮打滑 -> 只信前轮 */
+        No_rear_wheels = 1;
         //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(100,Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 1630.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD3; }
+		Set_Vel(50,Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > 1630.0f) {
+            No_rear_wheels = 0;                        /* 出段: 恢复四轮 */
+            sm_t = HAL_GetTick(); sm_phase = SM_HOLD3;
+        }
         break;
     case SM_HOLD3:
         Set_Vel(Pos_X(1630.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE4;}//
+        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {}//sm_phase = SM_MOVE4;
         break;
 
     case SM_MOVE4:      /* 左移到 y>1500（x 按住 1630） */
@@ -470,9 +477,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         if (flag_Numdelay && KeyNum == 1)
         {
            //单路线调试
-           //line_test();
+           line_test();
            //(加机械臂全层调试)
-				StateMachine_Update();
+			//StateMachine_Update();
 
 //			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
@@ -490,14 +497,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         Exp_Speed_Cal();        /* 解算 -> exp_wheel_rpm (RPM) */
 
         int p1 = 0, p2 = 0, p3 = 0, p4 = 0;
+		
+        if(!No_rear_wheels)
+        { 
         p1 = Velocity_Wheel1(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_1),
                             (int)Encoder_GetDelta(ENC_WHEEL1));
+		p4 = Velocity_Wheel4(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_4),
+                            (int)Encoder_GetDelta(ENC_WHEEL4));
+        }
+       
         p2 = Velocity_Wheel2(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_2),
                             (int)Encoder_GetDelta(ENC_WHEEL2));
         p3 = Velocity_Wheel3(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_3),
                             (int)Encoder_GetDelta(ENC_WHEEL3));
-        p4 = Velocity_Wheel4(Kinematics_RPM_To_Pulse(kinematics.exp_wheel_rpm.motor_4),
-                            (int)Encoder_GetDelta(ENC_WHEEL4));
+      
         /* 反馈轮速：只写 kinematics.fb_wheel_rpm 这个普通结构体，不驱动任何电机。
          * 注意下面那条 PID 通路并不用它 —— Velocity_WheelN 的 Target 和 encoder
          * 都是脉冲/5ms，两边单位一致，直接对着原始增量比。这里纯粹给遥测/观察用。

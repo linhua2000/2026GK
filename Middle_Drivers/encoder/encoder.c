@@ -36,9 +36,17 @@ void Encoder_Update(void)
          * 四路 ARR 都是 65535，正好在 65536 回绕（5ms 内 |增量| < 32768） */
         int16_t delta = (int16_t)__HAL_TIM_GET_COUNTER(s_tim[i]);
         __HAL_TIM_SET_COUNTER(s_tim[i], 0);
-
         s_delta[i]  = (int32_t)delta;   /* TIM6 周期 5ms 内的脉冲增量 */
         s_total[i] += (int32_t)delta;
+    }
+
+    /* 后轮打滑段: 只信前轮, 用同侧前轮代替后轮(左后=左前, 右后=右前)。
+     * 必须在循环之后 —— 循环里 s_delta[i] 会把这里的写覆盖掉。
+     * 注意不是清零: v1=v4=0 会让 odometry 的 vx/vy 减半。 */
+    if (No_rear_wheels)
+    {
+        s_delta[ENC_WHEEL1] = s_delta[ENC_WHEEL2];   /* 左后 = 左前 */
+        s_delta[ENC_WHEEL4] = s_delta[ENC_WHEEL3];   /* 右后 = 右前 */
     }
 }
 
