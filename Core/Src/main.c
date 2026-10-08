@@ -164,7 +164,7 @@ int main(void)
   Vision_UART_Init();
 
   /* XY 舵机 PID 控制初始化 */
-  //Servo_PID_Init();
+  Servo_PID_Init();
   Uart_Init();   /* 使能舵机 USART2 接收中断, ReadPos 才能读到位置 */
 
   /* OLED 初始化 */
@@ -253,16 +253,15 @@ int main(void)
         }
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
-					laser_On();
-           /* 激光打靶测试: 按一下开, 再按关 */
-           test_laser_run ^= 1;
-           if (!test_laser_run) laser_Off();
+           /* 识别直线小车补偿测试: 按一下开, 再按关 */
+           test_line_run ^= 1;
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */
     Hold_Action_Update();
 
     Laser_Track_Test();   /* 激光打靶测试(独立于运动系统) */
+    Line_Track_Test();    /* 识别直线小车补偿测试(独立于运动系统) */
 
     uint32_t now = HAL_GetTick();
 

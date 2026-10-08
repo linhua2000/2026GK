@@ -127,6 +127,12 @@
 #define LASER_PREP_S1_POS      3389   /* 舵机1 Y */
 #define LASER_PREP_S2_POS      1938   /* 舵机2 肘 */
 
+/* ============ 识别直线位姿(视觉 C7, 独立测试用) ============ */
+#define LINE_RECOG_S1_POS      3398   /* 舵机1 Y */
+#define LINE_RECOG_S2_POS      1354   /* 舵机2 肘 */
+#define LINE_RECOG_S3_POS      950    /* 舵机3 X */
+#define LINE_SETTLE_MS         500    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
+
 /* ============ 通用 PID ============ */
 void Control_PID_Init(PID_Controller_t *pid, float kp, float ki, float kd,
                       float min_output, float max_output)
@@ -572,34 +578,46 @@ void Hold_Action_Update(void)
                 step = 21;
             }
             break;
-        case 21:                                 /* 延时 500ms 后回 860 + 舵机2 -> 1938(准备看激光) */
+        case 21:                                 /* 延时 500ms 后回 860, 退出追踪(准备看直线) */
             if (HAL_GetTick() - t >= RETURN_860_DELAY_MS) {
                 vision_car_track_enable = 0;     /* 退出左右追踪，SM_HOLD6 把车拉回 y=860 */
                 vision_car_vx_track_enable = 0;  /* 退出前后追踪，车拉回 x=2644 */
                 vision_car_vx = 0.0f;
-                WritePosEx(SERVO2_ID, (int16_t)LASER_PREP_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 22;
             }
             break;
-        case 22:                                 /* 舵机3 -> 950 */
-            if (servo_reached(SERVO2_ID, LASER_PREP_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)LASER_PREP_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = LASER_PREP_S3_POS;
-                t = HAL_GetTick();
-                step = 23;
-            }
+        case 22:                                 /* 舵机1 -> 3398 (识别直线位姿) */
+            WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = LINE_RECOG_S1_POS;
+            t = HAL_GetTick();
+            step = 23;
             break;
-        case 23:                                 /* 舵机1 -> 3389 */
-            if (servo_reached(SERVO_X_ID, LASER_PREP_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_Y_ID, (int16_t)LASER_PREP_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
-                servo_pos_y = LASER_PREP_S1_POS;
+        case 23:                                 /* 舵机2 -> 1354 */
+            if (servo_reached(SERVO_Y_ID, LINE_RECOG_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)LINE_RECOG_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 24;
             }
             break;
-        case 24:                                 /* 舵机1 到位 -> 完成 */
-            if (servo_reached(SERVO_Y_ID, LASER_PREP_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+        case 24:                                 /* 舵机3 -> 950 */
+            if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)LINE_RECOG_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = LINE_RECOG_S3_POS;
+                t = HAL_GetTick();
+                step = 25;
+            }
+            break;
+        case 25:                                 /* 舵机3 到位 -> 延时沉降 */
+            if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                t = HAL_GetTick();
+                step = 26;
+            }
+            break;
+        case 26:                                 /* 沉降完 -> 发 B6 06 6B 切直线, 清 turn_flag -> 完成 */
+            if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+                Vision_Send_B6(0x06);
+                vision_data.turn_flag = 0;
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
             }
@@ -608,34 +626,57 @@ void Hold_Action_Update(void)
         return;
     }
 
-    /* ---- part3: HOLD7 发 B6 04 -> 追靶心 -> 激光 -> 舵机复位 ---- */
+    /* ---- part3: HOLD7 恢复激光预备位姿 -> 发 B6 04 -> 追靶心 -> 激光 -> 舵机复位 ---- */
     if (hold_action_id == 3) {
         switch (step) {
-        case 0:                                  /* 发 B6 04 6B 要靶心 */
-            Vision_Send_B6(0x04);
-            vision_data.track_flag = 0;
-            pid_laser_x.error_last = 0.0f;
-            pid_laser_x.intergral = 0.0f;
-            pid_laser_y.error_last = 0.0f;
-            pid_laser_y.intergral = 0.0f;
-            stable_cnt = 0;
+        case 0:                                  /* 舵机1 -> 3389 (恢复激光预备位姿) */
+            WritePosEx(SERVO_Y_ID, (int16_t)LASER_PREP_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = LASER_PREP_S1_POS;
+            t = HAL_GetTick();
             step = 1;
             break;
-        case 1:                                  /* 等靶心 D8 (6字节) / 追靶 */
+        case 1:                                  /* 舵机2 -> 1938 */
+            if (servo_reached(SERVO_Y_ID, LASER_PREP_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)LASER_PREP_S2_POS, SERVO2_SPEED, SERVO_ACC);
+                t = HAL_GetTick();
+                step = 2;
+            }
+            break;
+        case 2:                                  /* 舵机3 -> 950 */
+            if (servo_reached(SERVO2_ID, LASER_PREP_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)LASER_PREP_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = LASER_PREP_S3_POS;
+                t = HAL_GetTick();
+                step = 3;
+            }
+            break;
+        case 3:                                  /* 发 B6 04 6B 要靶心 */
+            if (servo_reached(SERVO_X_ID, LASER_PREP_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                Vision_Send_B6(0x04);
+                vision_data.track_flag = 0;
+                pid_laser_x.error_last = 0.0f;
+                pid_laser_x.intergral = 0.0f;
+                pid_laser_y.error_last = 0.0f;
+                pid_laser_y.intergral = 0.0f;
+                stable_cnt = 0;
+                step = 4;
+            }
+            break;
+        case 4:                                  /* 等靶心 D8 (6字节) / 追靶 */
             if (vision_data.track_flag) {
                 vision_data.track_flag = 0;
                 track_xy_err(vision_data.grab_x, vision_data.grab_y);
                 if (check_stable(vision_data.grab_x, vision_data.grab_y)) {
-                    step = 2;                    /* 稳定 -> 开激光 */
+                    step = 5;                    /* 稳定 -> 开激光 */
                 }
             }
             break;
-        case 2:                                  /* 开激光 */
+        case 5:                                  /* 开激光 */
             laser_On();
             t = HAL_GetTick();
-            step = 3;
+            step = 6;
             break;
-        case 3:                                  /* 激光开期间继续追踪 */
+        case 6:                                  /* 激光开期间继续追踪 */
             if (vision_data.track_flag) {
                 vision_data.track_flag = 0;
                 track_xy_err(vision_data.grab_x, vision_data.grab_y);
@@ -643,31 +684,31 @@ void Hold_Action_Update(void)
             if (HAL_GetTick() - t >= LASER_ON_MS) {
                 laser_Off();
                 t = HAL_GetTick();
-                step = 4;
+                step = 7;
             }
             break;
-        case 4:                                  /* 舵机1 -> 3399 */
+        case 7:                                  /* 舵机1 -> 3399 */
             WritePosEx(SERVO_Y_ID, (int16_t)LASER_END_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
             servo_pos_y = LASER_END_S1_POS;
             t = HAL_GetTick();
-            step = 5;
+            step = 8;
             break;
-        case 5:                                  /* 舵机2 -> 1581 */
+        case 8:                                  /* 舵机2 -> 1581 */
             if (servo_reached(SERVO_Y_ID, LASER_END_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO2_ID, (int16_t)LASER_END_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
-                step = 6;
+                step = 9;
             }
             break;
-        case 6:                                  /* 舵机3 -> 950 */
+        case 9:                                  /* 舵机3 -> 950 */
             if (servo_reached(SERVO2_ID, LASER_END_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO_X_ID, (int16_t)LASER_END_S3_POS, SERVO_SPEED_X, SERVO_ACC);
                 servo_pos_x = LASER_END_S3_POS;
                 t = HAL_GetTick();
-                step = 7;
+                step = 10;
             }
             break;
-        case 7:                                  /* 舵机4 -> 2543, 完成 */
+        case 10:                                 /* 舵机4 -> 2543, 完成 */
             if (servo_reached(SERVO_X_ID, LASER_END_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO4_ID, (int16_t)LASER_END_S4_POS, SERVO4_SPEED, SERVO_ACC);
                 hold_action_state = HOLD_ACTION_DONE;
@@ -865,6 +906,67 @@ void Laser_Track_Test(void)
             vision_data.track_flag = 0;
             track_xy_err(vision_data.grab_x, vision_data.grab_y);
         }
+        break;
+    }
+}
+
+/* ============ 识别直线小车补偿测试(KEY_4 触发, 与运动系统无关) ============ */
+
+volatile uint8_t test_line_run   = 0;
+volatile uint8_t line_test_ready = 0;  /* 1=位姿就绪且已发B6, 中断才开始补偿 */
+
+/* 主循环每圈调用: 触发后把舵机切到直线位姿, 延时沉降后再发 B6 06 6B; 车速度补偿由中断 Line_Compensate_Update 做。 */
+void Line_Track_Test(void)
+{
+    static uint8_t  step     = 0;
+    static uint8_t  last_run = 0;
+    static uint32_t t        = 0;
+
+    if (!test_line_run) { last_run = 0; return; }
+
+    if (!last_run) {                 /* 刚触发, 复位 */
+        last_run = 1;
+        step = 0;
+        line_test_ready = 0;
+    }
+
+    switch (step) {
+    case 0:                          /* 舵机1 -> 3398 (识别直线位姿) */
+        WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+        servo_pos_y = LINE_RECOG_S1_POS;
+        t = HAL_GetTick();
+        step = 1;
+        break;
+    case 1:                          /* 舵机2 -> 1354 */
+        if (servo_reached(SERVO_Y_ID, LINE_RECOG_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            WritePosEx(SERVO2_ID, (int16_t)LINE_RECOG_S2_POS, SERVO2_SPEED, SERVO_ACC);
+            t = HAL_GetTick();
+            step = 2;
+        }
+        break;
+    case 2:                          /* 舵机3 -> 950 */
+        if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            WritePosEx(SERVO_X_ID, (int16_t)LINE_RECOG_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+            servo_pos_x = LINE_RECOG_S3_POS;
+            t = HAL_GetTick();
+            step = 3;
+        }
+        break;
+    case 3:                          /* 舵机3 到位 -> 开始延时沉降 */
+        if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            t = HAL_GetTick();
+            step = 4;
+        }
+        break;
+    case 4:                          /* 沉降完 -> 发 B6 06 6B, 清 turn_flag 并置就绪 */
+        if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+            Vision_Send_B6(0x06);
+            vision_data.turn_flag = 0;
+            line_test_ready = 1;
+            step = 5;
+        }
+        break;
+    case 5:                          /* 补偿由中断 Line_Compensate_Update 持续做, 这里只等关断 */
         break;
     }
 }

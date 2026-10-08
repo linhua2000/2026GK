@@ -40,6 +40,11 @@ void Hold_Action_Update(void);
 extern volatile uint8_t test_laser_run;
 void Laser_Track_Test(void);
 
+/* 识别直线小车补偿测试(KEY_4 触发, 与运动系统无关) */
+extern volatile uint8_t test_line_run;
+extern volatile uint8_t line_test_ready;   /* 1=位姿就绪且已发B6, 中断才开始补偿 */
+void Line_Track_Test(void);
+
 /* 主循环里调；把四个舵机实际位置打一行到 LOG（蓝牙口 USART1） */
 void FT_test_debug(void);
 

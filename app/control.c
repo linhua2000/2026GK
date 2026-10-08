@@ -167,6 +167,10 @@ typedef enum {
  * 用 1630 + Slip_Offset 把目标挪一点。0.0f = 不修正(行为不变)。line_test() 与 StateMachine_Update() 都用。 */
 #define Slip_Offset  (89.0f)
 
+/* 识别直线 C7 距离矫正(X轴): 目标距离 + 增益; 符号=补偿方向, 现场调。SM_MOVE7 与 K4 测试共用。 */
+#define LINE_DIST_TARGET   61.0f   /* 到直线目标距离(原始值 turn_y) */
+#define LINE_KP            0.8f    /* turn_y -> vx 增益 */
+
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
 
@@ -405,8 +409,11 @@ static void StateMachine_Update(void)
         if (hold_action_state == HOLD_ACTION_DONE) {  hold_action_id = 0;hold_action_state = HOLD_ACTION_IDLE;sm_phase = SM_MOVE7; } //
         break;
 
-    case SM_MOVE7:      /* 继续右移到 y<-840（x 按住 2600） */
-        Set_Vel(0,-100,Pos_Yaw(0.075,odometry.theta,-0.75)); //角度,x不变移动y
+    case SM_MOVE7:      /* 继续右移到 y<-840; 视觉 C7 距离矫正 x(目标 61) */
+        {
+            float vx = vision_data.turn_flag ? (LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET)) : 0.0f;
+            Set_Vel(vx, -100, Pos_Yaw(0.075, odometry.theta, -0.75));
+        }
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
         if (odometry.y < -840.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }//
         break;
@@ -470,6 +477,20 @@ const char * Control_GetStateName(void)
     return names[sm_phase];
 }
 
+/* ================= 识别直线小车补偿测试(KEY_4) =================
+ * 中断侧: 读 C7 turn_y, 在 X 轴做比例补偿, 把到直线距离保持在 LINE_DIST_TARGET。
+ * 只在 KeyNum==0(状态机没跑) 且 test_line_run==1 时由中断调用。 */
+
+void Line_Compensate_Update(void)
+{
+    if (!line_test_ready || !vision_data.turn_flag) {  /* 没就绪 / 没识别到线: 不动 */
+        Set_Vel(0, 0, 0);
+        return;
+    }
+    float vx = LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET);
+    Set_Vel(vx, 0.0f, Pos_Yaw(0, odometry.theta, 0));
+}
+
 /* ================= 5ms 闭环 ================= */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -506,6 +527,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //			Set_Vel(0, 0, Pos_Yaw(0,odometry.theta,0));//角度不变移动x，y
 //			Set_Vel(0, 0, 0.6);
 
+        }
+        else if (test_line_run)
+        {
+            Line_Compensate_Update();   /* 识别直线小车补偿测试(KEY_4) */
         }
         else
         {
