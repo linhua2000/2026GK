@@ -169,9 +169,93 @@ typedef enum {
  * 用 1630 + Slip_Offset 把目标挪一点。0.0f = 不修正(行为不变)。line_test() 与 StateMachine_Update() 都用。 */
 #define Slip_Offset  (89.0f)
 
+/* ==================== 行驶路线参数表 (唯一标定处) ====================
+ * 每一段的位置判据 = 「进入本段时的里程计位置(sm_ex/sm_ey) + 本段增量」。
+ * 所以改地图只需改本段增量, 不会牵连别的段。单位 mm; 正负 = 里程计坐标方向
+ * (x 右为正 / y 左为正, 见 odometry.c 约定)。
+ *
+ * 命名: R_<段>_D    本段沿主轴要走的距离(出口判据)
+ *       R_<段>_C    本段另一轴要保持在的偏移(相对进入点)
+ *       R_<段>_CX/CY  HOLD 段两轴的保持偏移(相对进入点)
+ *
+ * ★ = 需现场标定。下列数值全部从旧绝对阈值反推, 是占位值 —— 上车逐段核对再改。
+ * ◎ = 视觉段: 控制律走视觉(见段内注释), 表里只放里程计出口/保持量。
+ *
+ * 特殊段(不查本表): HOLD7/HOLD9_POSE(纯停住) 无里程计判据。
+ * ==================================================================== */
+
+/* ---- MOVE1: 起步沿 +X 直行, 到第一张二维码前的位姿 ★ ---- */
+#define R_MOVE1_D     650.0f    /* 前进距离(旧: x>650, 起点 x≈0) */
+#define R_MOVE1_C       0.0f    /* y 保持(旧: Pos_Y(0), 起点 y≈0) */
+
+/* ---- HOLD1: 停车做 part1 二维码扫码 (停车保持, 不驱动) ---- */
+#define R_HOLD1_CX      0.0f    /* x 保持(旧: Pos_X(650), 停在进入点) */
+#define R_HOLD1_CY      0.0f    /* y 保持(旧: Pos_Y(0)) */
+
+/* ---- MOVE2: 沿 +Y 左移, x 保持 ★ ---- */
+#define R_MOVE2_D     580.0f    /* 左移距离(旧: y>580, 起点 y≈0) */
+#define R_MOVE2_C       0.0f    /* x 保持(旧: Pos_X(650)) */
+
+/* ---- MOVE2_ADJUST: 微调, x 前挪 100、y 拉到 90 ★ ---- */
+#define R_MOVE2A_DX   100.0f    /* x 前进(旧: 出口 x>750; 起点 x≈650) */
+#define R_MOVE2A_CY    90.0f    /* y 保持(旧: Pos_Y(670); 起点 y≈580) */
+
+/* ---- HOLD2: 不停顿, 只摆目标, 立刻进 MOVE3（无用）---- */
+#define R_HOLD2_CX    -10.0f    /* x 保持(旧: Pos_X(740); 起点 x≈750) */
+#define R_HOLD2_CY      0.0f    /* y 保持(旧: Pos_Y(670)) */
+
+/* ---- MOVE3: 沿 +X 长距离直行(后轮打滑段) ★ ---- */
+#define R_MOVE3_D     969.0f    /* 前进距离(旧: x>1630+Slip=1719; 起点 x≈750) */
+#define R_MOVE3_C       0.0f    /* y 保持(旧: Pos_Y(670)) */
+
+/* ---- HOLD3: 停车保持(定时 3s) ---- */
+#define R_HOLD3_CX      0.0f    /* x 保持(旧: Pos_X(1630+Slip)) */
+#define R_HOLD3_CY      0.0f    /* y 保持(旧: Pos_Y(670)) */
+
+/* ---- MOVE4: 沿 +Y 左移 ★ ---- */
+#define R_MOVE4_D     720.0f    /* 左移距离(旧: y>1390; 起点 y≈670) */
+#define R_MOVE4_C       0.0f    /* x 保持(旧: Pos_X(1630+Slip)) */
+
+/* ---- HOLD4: 停车保持(定时) ★ ---- */
+#define R_HOLD4_CX    170.0f    /* x 前挪(旧: Pos_X(1800+Slip)=1889; 起点 x≈1719) */
+#define R_HOLD4_CY    123.0f    /* y 保持(旧: Pos_Y(1513); 起点 y≈1390) */
+
+/* ---- MOVE5: 沿 +X 直行 ★ ---- */
+#define R_MOVE5_D     750.0f    /* 前进距离(旧: x>2550+Slip=2639; 起点 x≈1889) */
+#define R_MOVE5_C      -5.0f    /* y 保持(旧: Pos_Y(1508); 起点 y≈1513) */
+
+/* ---- HOLD5: 停车保持(定时) ★ ---- */
+#define R_HOLD5_CX     88.0f    /* x 前挪(旧: Pos_X(2638+Slip)=2727; 起点 x≈2639) */
+#define R_HOLD5_CY   -218.0f    /* y 收(旧: Pos_Y(1290); 起点 y≈1508) */
+
+/* ---- MOVE6: 沿 -Y 右移, 只锁航向(不保持 x) ★ ---- */
+#define R_MOVE6_D    -430.0f    /* 右移距离(旧: y<860; 起点 y≈1290) */
+
+/* ---- HOLD6: 视觉追球保持 (part2) ◎ ---- */
+#define R_HOLD6_CX     -8.0f    /* x 保持(旧: Pos_X(2630+Slip)=2719; 起点 x≈2727) */
+
+/* ---- MOVE7: 视觉 C7 直线矫正, 沿 -Y 右移 ★◎ ---- */
+#define R_MOVE7_D   -1700.0f    /* 右移距离(旧: y<-840; 起点 y≈860); vx/角度由视觉给 */
+
+/* ---- MOVE8: 沿 -Y 右移, 只锁航向 ★ ---- */
+#define R_MOVE8_D    -560.0f    /* 右移距离(旧: y<-1400; 起点 y≈-840) */
+
+/* ---- HOLD8: 拉回位姿 + 视觉 Y/角度矫正 (part5) ★◎ ---- */
+#define R_HOLD8_CX   -238.0f    /* x 拉回(旧: Pos_X(2400+Slip)=2489; 起点 x≈2727) */
+#define R_HOLD8_CY    -90.0f    /* y 拉回(旧: Pos_Y(-1490); 起点 y≈-1400) */
+
+/* ---- MOVE9: 沿 -X 后退, 只锁航向 ★ ---- */
+#define R_MOVE9_D    -750.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
+
+/* ---- MOVE10: 沿 -X 退到终点, 视觉 Y 补偿 ★◎ ---- */
+#define R_MOVE10_D  -1290.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
+
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
 static float     sm_x0;                 /* SM_MOVE9_ADJUST 相对距离起点 */
+static float     sm_ex;                 /* 进入当前状态时的 odometry.x —— 本段所有位置判据的基准 */
+static float     sm_ey;                 /* 进入当前状态时的 odometry.y */
+static SM_State  sm_last = SM_IDLE;     /* 检测状态切换, 用于抓进入点快照 */
 
 //路线test
 static void line_test(void)
@@ -326,6 +410,10 @@ static void line_test(void)
 
 static void StateMachine_Update(void)
 {
+    /* 换段就抓一次进入点快照: 本段的位置判据/保持目标全部相对它,
+     * 这样改地图只需改本段增量 R_*, 不会波及上游下游任何一段。 */
+    if (sm_phase != sm_last) { sm_last = sm_phase; sm_ex = odometry.x; sm_ey = odometry.y; }
+
     switch (sm_phase)
     {
     case SM_IDLE:
@@ -335,39 +423,39 @@ static void StateMachine_Update(void)
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) sm_phase = SM_MOVE1;
         break;
 
-    case SM_MOVE1:      /* 前进到 x>650（y 按住 0） */
+    case SM_MOVE1:      /* 前进 R_MOVE1_D（y 按住进入点） */
         //	Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(160,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 650.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
+		Set_Vel(160,Pos_Y(sm_ey + R_MOVE1_C,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > sm_ex + R_MOVE1_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD1; }
         break;
     case SM_HOLD1:
-       Set_Vel(Pos_X(650.0,odometry.x), Pos_Y(0,odometry.y), Pos_Yaw(0,odometry.theta,0));
+       Set_Vel(Pos_X(sm_ex + R_HOLD1_CX,odometry.x), Pos_Y(sm_ey + R_HOLD1_CY,odometry.y), Pos_Yaw(0,odometry.theta,0));
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 握手+舵机复位 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }
         break;
 
-    case SM_MOVE2:      /* 左移到 y>650（x 按住 650） */
-        Set_Vel(Pos_X(650.0,odometry.x),160,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+    case SM_MOVE2:      /* 左移 R_MOVE2_D（x 按住进入点） */
+        Set_Vel(Pos_X(sm_ex + R_MOVE2_C,odometry.x),160,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y > 580.0f) { sm_t = HAL_GetTick(); sm_phase = SM_MOVE2_ADJUST; }
+        if (odometry.y > sm_ey + R_MOVE2_D) { sm_t = HAL_GetTick(); sm_phase = SM_MOVE2_ADJUST; }
         break;
-		
-    case SM_MOVE2_ADJUST:      /* 左移到 y>650（x 按住 650） */
-        Set_Vel(Pos_X(750.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+
+    case SM_MOVE2_ADJUST:      /* 微调: x 前挪 R_MOVE2A_DX, y 保持 R_MOVE2A_CY */
+        Set_Vel(Pos_X(sm_ex + R_MOVE2A_DX,odometry.x),Pos_Y(sm_ey + R_MOVE2A_CY,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 750.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
+        if (odometry.x > sm_ex + R_MOVE2A_DX) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD2; }
         break;
 
     case SM_HOLD2:
-        Set_Vel(Pos_X(740.0,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-//        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) 
+// Set_Vel(Pos_X(sm_ex + R_HOLD2_CX,odometry.x),Pos_Y(sm_ey + R_HOLD2_CY,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+//      if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS)
 		{sm_phase = SM_MOVE3;}//
         break;
 
-    case SM_MOVE3:      /* 前进到 x>1630（y 按住 650） */
+    case SM_MOVE3:      /* 前进 R_MOVE3_D（y 按住进入点, 后轮打滑） */
         //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(180,Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 1630.0f+Slip_Offset) {
+		Set_Vel(180,Pos_Y(sm_ey + R_MOVE3_C,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > sm_ex + R_MOVE3_D) {
 			No_rear_wheels = 0;
             No_front_wheels = 0;                        /* 出段: 恢复四轮 */
             sm_t = HAL_GetTick(); sm_phase = SM_HOLD3;
@@ -375,42 +463,42 @@ static void StateMachine_Update(void)
         break;
 
     case SM_HOLD3:
-        Set_Vel(Pos_X(1630.0f+Slip_Offset,odometry.x),Pos_Y(670,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(sm_ex + R_HOLD3_CX,odometry.x),Pos_Y(sm_ey + R_HOLD3_CY,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE4;}//
         break;
 
-    case SM_MOVE4:      /* 左移到 y>1500（x 按住 1630） */
-        Set_Vel(Pos_X(1630.0f+Slip_Offset,odometry.x),110,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+    case SM_MOVE4:      /* 左移 R_MOVE4_D（x 按住进入点） */
+        Set_Vel(Pos_X(sm_ex + R_MOVE4_C,odometry.x),110,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y > 1390.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
+        if (odometry.y > sm_ey + R_MOVE4_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD4; }
         break;
     case SM_HOLD4:
 //		Set_Vel(0, 0, 0);
-		Set_Vel(Pos_X(1800.0f+Slip_Offset,odometry.x),Pos_Y(1513,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+		Set_Vel(Pos_X(sm_ex + R_HOLD4_CX,odometry.x),Pos_Y(sm_ey + R_HOLD4_CY,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE5;}//
         break;
 
-    case SM_MOVE5:      /* 前进到 x>2600（y 按住 1500） */
+    case SM_MOVE5:      /* 前进 R_MOVE5_D（y 按住进入点） */
         //Set_Vel(Pos_X(650.0,odometry.x),100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(150,Pos_Y(1508,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.x > 2550.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
+		Set_Vel(150,Pos_Y(sm_ey + R_MOVE5_C,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+        if (odometry.x > sm_ex + R_MOVE5_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD5; }
         break;
     case SM_HOLD5:
 //		Set_Vel(0, 0, 0);
-        Set_Vel(Pos_X(2638.0f+Slip_Offset,odometry.x),Pos_Y(1290,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(Pos_X(sm_ex + R_HOLD5_CX,odometry.x),Pos_Y(sm_ey + R_HOLD5_CY,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE6;}//
         break;
 
-    case SM_MOVE6:      /* 右移到 y<850（x 按住 2600） */
+    case SM_MOVE6:      /* 右移 R_MOVE6_D（只锁航向, 不保持 x） */
         Set_Vel(0,-110,Pos_Yaw(0.055,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y <860.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
+        if (odometry.y < sm_ey + R_MOVE6_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD6; }
         break;
     case SM_HOLD6:
         {
             float vx, vy;
             if (vision_car_vx_track_enable) vx = vision_car_vx;                 /* y补偿: 前后由视觉接管 */
-            else                            vx = Pos_X(2630.0f+Slip_Offset, odometry.x-7);
+            else                            vx = Pos_X(sm_ex + R_HOLD6_CX, odometry.x-7);
             if (vision_car_track_enable)    vy = vision_car_vy;                 /* x对准: 左右由视觉接管 */
             else                            vy = Pos_Y(860,  odometry.y);
             Set_Vel(vx, vy, Pos_Yaw(-0.75, odometry.theta, 0));
@@ -419,7 +507,7 @@ static void StateMachine_Update(void)
         if (hold_action_state == HOLD_ACTION_DONE) {  hold_action_id = 0; hold_action_state = HOLD_ACTION_IDLE;sm_phase = SM_MOVE7;} //
         break;
 
-    case SM_MOVE7:      /* 继续右移到 y<-840; 视觉 C7 距离矫正 x + 角度矫正(目标0) */
+    case SM_MOVE7:      /* 右移 R_MOVE7_D; 视觉 C7 距离矫正 x + 角度矫正(目标0) */
         {
             float vx = vision_data.turn_flag ? (LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET)) : 0.0f;
             Set_Vel(vx, -100, Pos_Yaw(0.0, vision_data.turn_x * 0.099f, -0.0));
@@ -429,7 +517,7 @@ static void StateMachine_Update(void)
             }
         }
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < -840.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }//
+        if (odometry.y < sm_ey + R_MOVE7_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }//
         break;
 
     case SM_HOLD7:
@@ -438,18 +526,18 @@ static void StateMachine_Update(void)
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE8; }//
         break;
 
-    case SM_MOVE8:      /* 继续右移到 y<-1450（x 按住 2600） */
+    case SM_MOVE8:      /* 右移 R_MOVE8_D（只锁航向） */
         Set_Vel(0,-100,Pos_Yaw(0.1,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < -1400.0f) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
+        if (odometry.y < sm_ey + R_MOVE8_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
         break;
      case SM_HOLD8:
 //		Set_Vel(0, 0, 0);
 		{
-			float vx = Pos_X(2400.0f+Slip_Offset, odometry.x);
+			float vx = Pos_X(sm_ex + R_HOLD8_CX, odometry.x);
 			float vy, w;
-			if (hold8_phase == 0) {                       /* 到位: 拉回 (2400,-1505) */
-				vy = Pos_Y(-1490, odometry.y);
+			if (hold8_phase == 0) {                       /* 到位: 拉回位姿 */
+				vy = Pos_Y(sm_ey + R_HOLD8_CY, odometry.y);
 				w  = Pos_Yaw(0, odometry.theta, 0);
 			} else if (hold8_phase == 1) {                /* Y 补偿(85) */
 				vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
@@ -474,10 +562,10 @@ static void StateMachine_Update(void)
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE9; }//
         break;
 
-    case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
+    case SM_MOVE9:      /* 后退 R_MOVE9_D（只锁航向） */
         //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		Set_Vel(-100,0,Pos_Yaw(0,odometry.theta,0.0)); //角度,y不变移动x
-        if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; sm_x0=odometry.x; }//
+        if (odometry.x < sm_ex + R_MOVE9_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; sm_x0=odometry.x; }//
         break;
     case SM_HOLD9:
         {
@@ -504,16 +592,26 @@ static void StateMachine_Update(void)
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }//
         break;
 
-    case SM_MOVE10:     /* 后退到终点, y 由视觉距离补偿(目标85), 角度跟视觉(turn_x) */
-        {
+    case SM_MOVE10:     /* 后退 R_MOVE10_D 到终点, y 由视觉距离补偿(目标85) */
+     {
             float vy = vision_data.turn_flag
                      ? (LINE_KP_Y * ((float)vision_data.turn_y - 85.0f))
                      : 0.0f;
-			Set_Vel(-100, vy, 0);
-//			Set_Vel(-100, vy, Pos_Yaw(0, odometry.theta, -0.0));
-//          Set_Vel(-100, vy, Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0));
-        }
-        if (odometry.x < 50.0f+Slip_Offset) sm_phase = SM_DONE;
+            float w  = vision_data.turn_flag
+                     ? Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0)
+                     : Pos_Yaw(0.0f, odometry.theta, -0.0);
+            Set_Vel(-100, vy, w);
+    }
+
+//         {
+//             float vy = vision_data.turn_flag
+//                      ? (LINE_KP_Y * ((float)vision_data.turn_y - 85.0f))
+//                      : 0.0f;
+// 			Set_Vel(-100, vy, 0);
+// //			Set_Vel(-100, vy, Pos_Yaw(0, odometry.theta, -0.0));
+// //          Set_Vel(-100, vy, Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0));
+//         }
+        if (odometry.x < sm_ex + R_MOVE10_D) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
