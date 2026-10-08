@@ -146,7 +146,7 @@
 
 /* HOLD8 到位判定(车停后再摆舵机) */
 #define HOLD8_X_TARGET   (2400.0f + 89.0f)  /* = 2400 + Slip_Offset */
-#define HOLD8_Y_TARGET   (-1505.0f)
+#define HOLD8_Y_TARGET   (-1448.0f)         /* 与 control.c SM_HOLD8 phase0 的 Pos_Y(-1448) 保持一致 */
 #define HOLD8_POS_TOL    20.0f              /* 到位容差 mm */
 
 /* ============ 通用 PID ============ */
@@ -857,29 +857,29 @@ void Hold_Action_Update(void)
                 step = 1;
             }
             break;
-        case 1:                                  /* 舵机1 -> 3398 (看直线位姿) */
-            WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
-            servo_pos_y = HOLD8_S1_POS;
+        case 1:                                  /* 舵机3 -> 1960 (看直线位姿) */
+            WritePosEx(SERVO_X_ID, (int16_t)HOLD8_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+            servo_pos_x = HOLD8_S3_POS;
             t = HAL_GetTick();
             step = 2;
             break;
         case 2:                                  /* 舵机2 -> 1131 */
-            if (servo_reached(SERVO_Y_ID, HOLD8_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, HOLD8_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO2_ID, (int16_t)HOLD8_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 3;
             }
             break;
-        case 3:                                  /* 舵机3 -> 1960 */
+        case 3:                                  /* 舵机1 -> 3398 */
             if (servo_reached(SERVO2_ID, HOLD8_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)HOLD8_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = HOLD8_S3_POS;
+                WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+                servo_pos_y = HOLD8_S1_POS;
                 t = HAL_GetTick();
                 step = 4;
             }
             break;
-        case 4:                                  /* 舵机3 到位 -> 延时沉降 */
-            if (servo_reached(SERVO_X_ID, HOLD8_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+        case 4:                                  /* 舵机1 到位 -> 延时沉降 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 t = HAL_GetTick();
                 step = 5;
             }
@@ -914,6 +914,7 @@ void Hold_Action_Update(void)
             if (vision_data.turn_flag) {
                 vision_data.turn_flag = 0;
                 if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
+                    hold8_phase = 3;
                     stable_cnt = 0;
                     t = HAL_GetTick();           /* 稳定后开始沉降延时 */
                     step = 9;
@@ -922,13 +923,14 @@ void Hold_Action_Update(void)
             break;
         case 9:                                  /* 沉降延时 */
             if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+                hold8_phase = 3;
                 step = 10;
             }
             break;
         case 10:                                 /* 陀螺仪清零 */
             Odometry_ResetYaw0();
             Pos_Yaw_Reset();
-            hold8_phase = 3;
+            hold8_phase = 4;
             step = 11;
             break;
         case 11:                                 /* 舵机1 -> 3399 (人质位姿) */
@@ -1115,18 +1117,25 @@ void Line_Track_Test(void)
             if (check_stable_axis((int16_t)(vision_data.turn_y - LINE_DIST_TARGET_Y), 5)) {
                 stable_cnt = 0;
                 line_test_phase = 2; /* 进入角度稳定阶段 */
+                t = HAL_GetTick();   /* 角度稳定阶段(3s 超时)计时起点 */
                 step = 7;
             }
         }
         break;
-    case 7:                          /* 角度稳定: turn_x -> 20(2°) */
+    case 7:                          /* 角度稳定: turn_x -> 20(2°); 3s 未稳定强制下一步 */
         if (vision_data.turn_flag) {
             vision_data.turn_flag = 0;
             if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
                 stable_cnt = 0;
                 t = HAL_GetTick();   /* 稳定后开始沉降延时 */
                 step = 8;
+                break;
             }
+        }
+        if (HAL_GetTick() - t >= 3000U) {   /* 3 秒超时: 直接进下一步 */
+            stable_cnt = 0;
+            t = HAL_GetTick();              /* 同样从"现在"起算沉降延时 */
+            step = 8;
         }
         break;
     case 8:                          /* 沉降延时 */
