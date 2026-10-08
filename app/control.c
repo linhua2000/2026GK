@@ -157,6 +157,8 @@ typedef enum {
     SM_MOVE7, SM_HOLD7,
     SM_MOVE8, SM_HOLD8,
     SM_MOVE9, SM_HOLD9,
+    SM_MOVE9_ADJUST,                    /* HOLD9 后短距离后退(相对距离) */
+    SM_HOLD9_POSE,                      /* 摆 HOLD8 看直线位姿(舵机3→2→1)+发 B6 06, 车停住 */
     SM_MOVE10,                          /* 第 10 段后面没有 HOLD，直接进 DONE */
     SM_DONE
 } SM_State;
@@ -169,6 +171,7 @@ typedef enum {
 
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
+static float     sm_x0;                 /* SM_MOVE9_ADJUST 相对距离起点 */
 
 //路线test
 static void line_test(void)
@@ -295,6 +298,17 @@ static void line_test(void)
 //		Set_Vel(0, 0, 0);
 		Set_Vel(Pos_X(1649.0f+Slip_Offset,odometry.x),Pos_Y( -1509,odometry.y),Pos_Yaw(2.25,odometry.theta,0)); //角度,x不变移动y
         if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE10;}//
+        break;
+
+    case SM_MOVE9_ADJUST:      /* line_test 不用此状态, 仅为补齐 switch */
+        Set_Vel(-100, 0, Pos_Yaw(0, odometry.theta, 0.0));
+        if (odometry.x < sm_x0 - 100.0f) sm_phase = SM_MOVE10;
+        break;
+
+    case SM_HOLD9_POSE:        /* line_test 不用此状态, 仅为补齐 switch */
+        Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0));
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 6; hold_action_state = HOLD_ACTION_RUN; }
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }
         break;
 
     case SM_MOVE10:     /* 后退到 x<-50（y 按住 -1450） */
@@ -435,14 +449,14 @@ static void StateMachine_Update(void)
 			float vx = Pos_X(2400.0f+Slip_Offset, odometry.x);
 			float vy, w;
 			if (hold8_phase == 0) {                       /* 到位: 拉回 (2400,-1505) */
-				vy = Pos_Y(-1450, odometry.y);
+				vy = Pos_Y(-1490, odometry.y);
 				w  = Pos_Yaw(0, odometry.theta, 0);
 			} else if (hold8_phase == 1) {                /* Y 补偿(85) */
 				vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
 				w  = Pos_Yaw(0, odometry.theta, 0);
-			} else if (hold8_phase == 2) {                /* 角度矫正(目标4° = turn_x 40) */
+			} else if (hold8_phase == 2) {                /* 角度矫正(目标3.6° = turn_x 36) */
 				vy = 0.0f;
-				w  = Pos_Yaw(4.0, vision_data.turn_x * 0.1f, -0.0);
+				w  = Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0);
 			}
 			else if (hold8_phase == 3)
 			{vx = 0.0f;
@@ -463,7 +477,7 @@ static void StateMachine_Update(void)
     case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
         //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
 		Set_Vel(-100,0,Pos_Yaw(0,odometry.theta,0.0)); //角度,y不变移动x
-        if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; }//
+        if (odometry.x < 1650.0f+Slip_Offset) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD9; sm_x0=odometry.x; }//
         break;
     case SM_HOLD9:
         {
@@ -475,13 +489,30 @@ static void StateMachine_Update(void)
             Set_Vel(vx, vy, Pos_Yaw(0, odometry.theta, 0));
         }
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
-        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_x0 = odometry.x; sm_phase = SM_MOVE9_ADJUST; }
         break;
 
-    case SM_MOVE10:     /* 后退到 x<-50（y 按住 -1450） */
-        //Set_Vel(Pos_X(2500.0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		Set_Vel(-100,0,Pos_Yaw(0,odometry.theta,0.0)); //角度,y不变移动x
-        if (odometry.x < 70.0f+Slip_Offset) sm_phase = SM_DONE;
+    case SM_MOVE9_ADJUST:      /* 短距离后退一小段(x 负向), 相对距离 */
+        Set_Vel(-100, 0, Pos_Yaw(0, odometry.theta, 0.0));
+//        if (odometry.x <600) {sm_phase = SM_HOLD9_POSE;}
+        if (odometry.x < sm_x0 - 310.0f) sm_phase = SM_HOLD9_POSE;   /* 100mm 是占位符, 你调 */
+        break;
+
+    case SM_HOLD9_POSE:        /* 车停住, 摆 HOLD8 看直线位姿 + 发 B6 06 (part6) */
+        Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0));
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 6; hold_action_state = HOLD_ACTION_RUN; }//
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE10; }//
+        break;
+
+    case SM_MOVE10:     /* 后退到终点, y 由视觉距离补偿(目标85), 角度跟视觉(turn_x) */
+        {
+            float vy = vision_data.turn_flag
+                     ? (LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y))
+                     : 0.0f;
+			Set_Vel(-100, vy, 0);
+//          Set_Vel(-100, vy, Pos_Yaw(0.0, vision_data.turn_x * 0.099f, -0.0));
+        }
+        if (odometry.x < 65.0f+Slip_Offset) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
@@ -497,7 +528,7 @@ const char * Control_GetStateName(void)
         "IDLE","MOVE1","HOLD1","MOVE2","M2ADJ","HOLD2",
         "MOVE3","HOLD3","MOVE4","HOLD4","MOVE5","HOLD5",
         "MOVE6","HOLD6","MOVE7","HOLD7","MOVE8","HOLD8",
-        "MOVE9","HOLD9","MOVE10","DONE"
+        "MOVE9","HOLD9","M9ADJ","H9POS","MOVE10","DONE"
     };
     return names[sm_phase];
 }

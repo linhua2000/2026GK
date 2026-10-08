@@ -133,6 +133,7 @@
 #define LINE_RECOG_S2_POS      1354   /* 舵机2 肘 */
 #define LINE_RECOG_S3_POS      950    /* 舵机3 X */
 #define LINE_SETTLE_MS         1000    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
+#define LINE_POSE_SETTLE_MS    500     /* part6: 摆完 HOLD8 看直线位姿、发 B6 06 前的沉降延时 */
 
 /* ============ HOLD8 看直线位姿 ============ */
 #define HOLD8_S1_POS           3398   /* 舵机1 Y */
@@ -146,7 +147,7 @@
 
 /* HOLD8 到位判定(车停后再摆舵机) */
 #define HOLD8_X_TARGET   (2400.0f + 89.0f)  /* = 2400 + Slip_Offset */
-#define HOLD8_Y_TARGET   (-1448.0f)         /* 与 control.c SM_HOLD8 phase0 的 Pos_Y(-1448) 保持一致 */
+#define HOLD8_Y_TARGET   (-1482.0f)         /* 与 control.c SM_HOLD8 phase0 的 Pos_Y(-1448) 保持一致 */
 #define HOLD8_POS_TOL    20.0f              /* 到位容差 mm */
 
 /* ============ 通用 PID ============ */
@@ -910,7 +911,7 @@ void Hold_Action_Update(void)
                 }
             }
             break;
-        case 8:                                  /* 角度稳定: turn_x -> 20(2°) */
+        case 8:                                  /* 角度稳定: turn_x -> 36(3.6°) */
             if (vision_data.turn_flag) {
                 vision_data.turn_flag = 0;
                 if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
@@ -956,6 +957,48 @@ void Hold_Action_Update(void)
             break;
         case 14:                                 /* 舵机3 到位 -> 完成 */
             if (servo_reached(SERVO_X_ID, HOLD8_HOSTAGE_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                hold_action_state = HOLD_ACTION_DONE;
+                step = 0;
+            }
+            break;
+        }
+        return;
+    }
+
+    /* ---- part6: 短退后重摆 HOLD8 看直线位姿(舵机3→2→1) -> 沉降 -> 发 B6 06 6B ---- */
+    if (hold_action_id == 6) {
+        switch (step) {
+        case 0:                                  /* 舵机3 -> 1960 */
+            WritePosEx(SERVO_X_ID, (int16_t)HOLD8_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+            servo_pos_x = HOLD8_S3_POS;
+            t = HAL_GetTick();
+            step = 1;
+            break;
+        case 1:                                  /* 舵机3 到位 -> 舵机2 -> 1131 */
+            if (servo_reached(SERVO_X_ID, HOLD8_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)HOLD8_S2_POS, SERVO2_SPEED, SERVO_ACC);
+                t = HAL_GetTick();
+                step = 2;
+            }
+            break;
+        case 2:                                  /* 舵机2 到位 -> 舵机1 -> 3398 */
+            if (servo_reached(SERVO2_ID, HOLD8_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+                servo_pos_y = HOLD8_S1_POS;
+                t = HAL_GetTick();
+                step = 3;
+            }
+            break;
+        case 3:                                  /* 舵机1 到位 -> 起沉降计时 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                t = HAL_GetTick();
+                step = 4;
+            }
+            break;
+        case 4:                                  /* 沉降 500ms -> 发 B6 06 6B, 清 turn_flag, 完成 */
+            if (HAL_GetTick() - t >= LINE_POSE_SETTLE_MS) {
+                Vision_Send_B6(0x06);
+                vision_data.turn_flag = 0;
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
             }
@@ -1122,7 +1165,7 @@ void Line_Track_Test(void)
             }
         }
         break;
-    case 7:                          /* 角度稳定: turn_x -> 20(2°); 3s 未稳定强制下一步 */
+    case 7:                          /* 角度稳定: turn_x -> 36(3.6°); 3s 未稳定强制下一步 */
         if (vision_data.turn_flag) {
             vision_data.turn_flag = 0;
             if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
