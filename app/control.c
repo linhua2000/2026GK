@@ -507,12 +507,12 @@ static void StateMachine_Update(void)
     case SM_MOVE10:     /* 后退到终点, y 由视觉距离补偿(目标85), 角度跟视觉(turn_x) */
         {
             float vy = vision_data.turn_flag
-                     ? (LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y))
+                     ? (LINE_KP_Y * ((float)vision_data.turn_y - 85.0f))
                      : 0.0f;
 			Set_Vel(-100, vy, 0);
-//          Set_Vel(-100, vy, Pos_Yaw(0.0, vision_data.turn_x * 0.099f, -0.0));
+//          Set_Vel(-100, vy, Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0));
         }
-        if (odometry.x < 65.0f+Slip_Offset) sm_phase = SM_DONE;
+        if (odometry.x < 50.0f+Slip_Offset) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
