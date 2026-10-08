@@ -603,29 +603,29 @@ void Hold_Action_Update(void)
                 step = 22;
             }
             break;
-        case 22:                                 /* 舵机1 -> 3398 (识别直线位姿) */
-            WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
-            servo_pos_y = LINE_RECOG_S1_POS;
+        case 22:                                /* 舵机2 -> 1354 (识别直线位姿) */
+            WritePosEx(SERVO2_ID, (int16_t)LINE_RECOG_S2_POS, SERVO2_SPEED, SERVO_ACC);
             t = HAL_GetTick();
             step = 23;
             break;
-        case 23:                                 /* 舵机2 -> 1354 */
-            if (servo_reached(SERVO_Y_ID, LINE_RECOG_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, (int16_t)LINE_RECOG_S2_POS, SERVO2_SPEED, SERVO_ACC);
-                t = HAL_GetTick();
-                step = 24;
-            }
-            break;
-        case 24:                                 /* 舵机3 -> 950 */
+        case 23:                                 /* 舵机3 -> 950 */
             if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO_X_ID, (int16_t)LINE_RECOG_S3_POS, SERVO_SPEED_X, SERVO_ACC);
                 servo_pos_x = LINE_RECOG_S3_POS;
                 t = HAL_GetTick();
+                step = 24;
+            }
+            break;
+        case 24:                                 /* 舵机1 -> 3398 */
+            if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+                servo_pos_y = LINE_RECOG_S1_POS;
+                t = HAL_GetTick();
                 step = 25;
             }
             break;
-        case 25:                                 /* 舵机3 到位 -> 延时沉降 */
-            if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+        case 25:                                 /* 舵机1 到位 -> 延时沉降 */
+            if (servo_reached(SERVO_Y_ID, LINE_RECOG_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 t = HAL_GetTick();
                 step = 26;
             }
