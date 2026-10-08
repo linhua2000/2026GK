@@ -142,7 +142,7 @@
 /* ============ HOLD8 末尾 -> 识别人质位姿 ============ */
 #define HOLD8_HOSTAGE_S1_POS   3399   /* 舵机1 Y(同 HOSTAGE_S1_INIT) */
 #define HOLD8_HOSTAGE_S2_POS   1581   /* 舵机2 肘(同 HOSTAGE_S2_INIT) */
-#define HOLD8_HOSTAGE_S3_POS   1960   /* 舵机3 X(保持 1960, 现场调) */
+#define HOLD8_HOSTAGE_S3_POS   950    /* 舵机3 X: 人质位姿回 950, 给 part4 慢巡当起点 */
 
 /* HOLD8 到位判定(车停后再摆舵机) */
 #define HOLD8_X_TARGET   (2400.0f + 89.0f)  /* = 2400 + Slip_Offset */

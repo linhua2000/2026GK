@@ -435,7 +435,7 @@ static void StateMachine_Update(void)
 			float vx = Pos_X(2400.0f+Slip_Offset, odometry.x);
 			float vy, w;
 			if (hold8_phase == 0) {                       /* 到位: 拉回 (2400,-1505) */
-				vy = Pos_Y(-1448, odometry.y);
+				vy = Pos_Y(-1450, odometry.y);
 				w  = Pos_Yaw(0, odometry.theta, 0);
 			} else if (hold8_phase == 1) {                /* Y 补偿(85) */
 				vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
