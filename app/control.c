@@ -167,10 +167,6 @@ typedef enum {
  * 用 1630 + Slip_Offset 把目标挪一点。0.0f = 不修正(行为不变)。line_test() 与 StateMachine_Update() 都用。 */
 #define Slip_Offset  (89.0f)
 
-/* 识别直线 C7 距离矫正(X轴): 目标距离 + 增益; 符号=补偿方向, 现场调。SM_MOVE7 与 K4 测试共用。 */
-#define LINE_DIST_TARGET   61.0f   /* 到直线目标距离(原始值 turn_y) */
-#define LINE_KP            0.8f    /* turn_y -> vx 增益 */
-
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
 
@@ -431,8 +427,25 @@ static void StateMachine_Update(void)
         break;
      case SM_HOLD8:
 //		Set_Vel(0, 0, 0);
-        Set_Vel(Pos_X(2400.0f+Slip_Offset,odometry.x),Pos_Y( -1505,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-        if ((HAL_GetTick() - sm_t) >= SM_HOLD_MS) {sm_phase = SM_MOVE9;}//
+        {
+            float vx = Pos_X(2400.0f+Slip_Offset, odometry.x);
+            float vy, w;
+            if (hold8_phase == 1) {                       /* Y 补偿(85) */
+                vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
+                w  = Pos_Yaw(0, odometry.theta, 0);
+            } else if (hold8_phase == 2) {                /* 角度闭环(2°) */
+                float ang = (float)(vision_data.turn_x - LINE_ANGLE_TARGET);
+                float yaw_target = odometry.theta - LINE_ANGLE_KP * ang * 0.1f;
+                vy = 0.0f;
+                w  = Pos_Yaw(yaw_target, odometry.theta, 0);
+            } else {                                      /* phase 0: 到位; phase 3: 锁航向 */
+                vy = Pos_Y(-1505, odometry.y);
+                w  = Pos_Yaw(0, odometry.theta, 0);
+            }
+            Set_Vel(vx, vy, w);
+        }
+        if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 5; hold_action_state = HOLD_ACTION_RUN; }
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE9; }//
         break;
 
     case SM_MOVE9:      /* 后退到 x<1520（y 按住 -1450） */
@@ -483,12 +496,33 @@ const char * Control_GetStateName(void)
 
 void Line_Compensate_Update(void)
 {
-    if (!line_test_ready || !vision_data.turn_flag) {  /* 没就绪 / 没识别到线: 不动 */
+    if (!line_test_ready) {                        /* 还没发 B6: 不动 */
         Set_Vel(0, 0, 0);
         return;
     }
-    float vx = LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET);
-    Set_Vel(vx, 0.0f, Pos_Yaw(0, odometry.theta, 0));
+
+    if (test_line_run == 1) {                      /* X 补偿(放桶->激光, 目标 61) */
+        if (!vision_data.turn_flag) { Set_Vel(0, 0, 0); return; }
+        float vx = LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET);
+        Set_Vel(vx, 0.0f, Pos_Yaw(0, odometry.theta, 0));
+        return;
+    }
+
+    if (test_line_run == 2) {                      /* Y -> 角度 -> 清零 序列 */
+        if (line_test_phase == 1) {                /* Y 补偿(目标 85) */
+            float vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
+            Set_Vel(0.0f, vy, Pos_Yaw(0, odometry.theta, 0));
+        } else if (line_test_phase == 2) {         /* 角度稳定(目标 20=2°) */
+            float ang = (float)(vision_data.turn_x - LINE_ANGLE_TARGET);   /* ×10 度 */
+            float yaw_target = odometry.theta - LINE_ANGLE_KP * ang * 0.1f;
+            Set_Vel(0.0f, 0.0f, Pos_Yaw(yaw_target, odometry.theta, 0));
+        } else {                                   /* phase 0/3: 锁航向 */
+            Set_Vel(0.0f, 0.0f, Pos_Yaw(0, odometry.theta, 0));
+        }
+        return;
+    }
+
+    Set_Vel(0, 0, 0);
 }
 
 /* ================= 5ms 闭环 ================= */

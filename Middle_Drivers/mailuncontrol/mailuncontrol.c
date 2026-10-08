@@ -165,6 +165,13 @@ float Pos_Yaw(float Target, float pos_theta, float Yaw)
 	                -Pos_W_Max, Pos_W_Max);
 }
 
+/* 清 yaw 环积分(重设航向零点后调用, 避免残留积分引起漂移) */
+void Pos_Yaw_Reset(void)
+{
+	s_err_sum_yaw = 0.0f;
+	s_err_lp_yaw  = 0.0f;
+}
+
 /**********************************************************************
  * @brief  将角度误差归一化到 [-180°, +180°], 确保走最短路径
  * @param  target  目标角度 (度, 任意值)

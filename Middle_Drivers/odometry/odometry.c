@@ -105,3 +105,10 @@ void Odometry_Update(void)
     odometry.x += dx_body * c - dy_body * s;
     odometry.y += dx_body * s + dy_body * c;
 }
+
+/* 运行时重设航向零点: 把当前 Yaw 记为新的 yaw0, theta 归零。 */
+void Odometry_ResetYaw0(void)
+{
+    odometry.yaw0  = Yaw;
+    odometry.theta = 0.0f;
+}

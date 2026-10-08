@@ -33,4 +33,7 @@ void Odometry_Init(void);
  * 它读的 Encoder_GetDelta() 返回的就是那一拍刚采到的增量。 */
 void Odometry_Update(void);
 
+/* 运行时重设航向零点: 把当前陀螺仪 Yaw 记为新的 yaw0, theta 清零。 */
+void Odometry_ResetYaw0(void);
+
 #endif

@@ -41,8 +41,10 @@ extern volatile uint8_t test_laser_run;
 void Laser_Track_Test(void);
 
 /* 识别直线小车补偿测试(KEY_4 触发, 与运动系统无关) */
-extern volatile uint8_t test_line_run;
+extern volatile uint8_t test_line_run;   /* 0=关 1=X补偿(61) 2=Y序列(85->角度->清零) */
 extern volatile uint8_t line_test_ready;   /* 1=位姿就绪且已发B6, 中断才开始补偿 */
+extern volatile uint8_t line_test_phase;   /* 模式2阶段: 0=摆位姿 1=Y补偿 2=角度稳定 3=已清零 */
+extern volatile uint8_t hold8_phase;       /* SM_HOLD8阶段: 0=到位 1=Y补偿 2=角度 3=已清零 */
 void Line_Track_Test(void);
 
 /* 主循环里调；把四个舵机实际位置打一行到 LOG（蓝牙口 USART1） */

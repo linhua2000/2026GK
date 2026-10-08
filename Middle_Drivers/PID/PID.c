@@ -3,6 +3,7 @@
 #include "receive.h"
 #include "laser.h"
 #include "mailuncontrol.h"
+#include "odometry.h"
 #include <math.h>
 
 /* elog：LOG_TAG / LOG_LVL 必须先于 <elog.h> 定义（同 control.c 的约定） */
@@ -54,7 +55,7 @@
 #define LASER_END_S2_POS      1581   /* 舵机2 肘 */
 #define LASER_END_S3_POS      950   /* 舵机3 X */
 #define LASER_END_S4_POS      2543   /* 舵机4 夹爪 */
-#define LASER_ON_MS            10000   /* 激光打开时长 */
+#define LASER_ON_MS            1000   /* 激光打开时长 */
 
 /* ============ HOLD 段动作(part4: HOLD9 抓人质) ============ */
 #define HOSTAGE_S1_INIT        3399   /* 舵机1 Y 初始(慢巡/识别姿态, 同激光复位后) */
@@ -131,7 +132,22 @@
 #define LINE_RECOG_S1_POS      3398   /* 舵机1 Y */
 #define LINE_RECOG_S2_POS      1354   /* 舵机2 肘 */
 #define LINE_RECOG_S3_POS      950    /* 舵机3 X */
-#define LINE_SETTLE_MS         500    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
+#define LINE_SETTLE_MS         1000    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
+
+/* ============ HOLD8 看直线位姿 ============ */
+#define HOLD8_S1_POS           3398   /* 舵机1 Y */
+#define HOLD8_S2_POS           1131   /* 舵机2 肘 */
+#define HOLD8_S3_POS           1960   /* 舵机3 X */
+
+/* ============ HOLD8 末尾 -> 识别人质位姿 ============ */
+#define HOLD8_HOSTAGE_S1_POS   3399   /* 舵机1 Y(同 HOSTAGE_S1_INIT) */
+#define HOLD8_HOSTAGE_S2_POS   1581   /* 舵机2 肘(同 HOSTAGE_S2_INIT) */
+#define HOLD8_HOSTAGE_S3_POS   1960   /* 舵机3 X(保持 1960, 现场调) */
+
+/* HOLD8 到位判定(车停后再摆舵机) */
+#define HOLD8_X_TARGET   (2400.0f + 89.0f)  /* = 2400 + Slip_Offset */
+#define HOLD8_Y_TARGET   (-1505.0f)
+#define HOLD8_POS_TOL    20.0f              /* 到位容差 mm */
 
 /* ============ 通用 PID ============ */
 void Control_PID_Init(PID_Controller_t *pid, float kp, float ki, float kd,
@@ -831,6 +847,120 @@ void Hold_Action_Update(void)
         }
         return;
     }
+
+    /* ---- part5: HOLD8 看直线位姿 -> Y/角度稳定 -> 清零 -> 人质位姿 ---- */
+    if (hold_action_id == 5) {
+        switch (step) {
+        case 0:                                  /* 等车到位(停稳后再摆舵机) */
+            if (fabsf(odometry.x - HOLD8_X_TARGET) < HOLD8_POS_TOL &&
+                fabsf(odometry.y - HOLD8_Y_TARGET) < HOLD8_POS_TOL) {
+                step = 1;
+            }
+            break;
+        case 1:                                  /* 舵机1 -> 3398 (看直线位姿) */
+            WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = HOLD8_S1_POS;
+            t = HAL_GetTick();
+            step = 2;
+            break;
+        case 2:                                  /* 舵机2 -> 1131 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)HOLD8_S2_POS, SERVO2_SPEED, SERVO_ACC);
+                t = HAL_GetTick();
+                step = 3;
+            }
+            break;
+        case 3:                                  /* 舵机3 -> 1960 */
+            if (servo_reached(SERVO2_ID, HOLD8_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)HOLD8_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = HOLD8_S3_POS;
+                t = HAL_GetTick();
+                step = 4;
+            }
+            break;
+        case 4:                                  /* 舵机3 到位 -> 延时沉降 */
+            if (servo_reached(SERVO_X_ID, HOLD8_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                t = HAL_GetTick();
+                step = 5;
+            }
+            break;
+        case 5:                                  /* 沉降完 -> 发 B6 06 6B, 清 turn_flag */
+            if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+                Vision_Send_B6(0x06);
+                vision_data.turn_flag = 0;
+                hold8_phase = 0;
+                stable_cnt = 0;
+                step = 6;
+            }
+            break;
+        case 6:                                  /* 等第一帧 C7 -> 进 Y 补偿 */
+            if (vision_data.turn_flag) {
+                vision_data.turn_flag = 0;
+                hold8_phase = 1;
+                step = 7;
+            }
+            break;
+        case 7:                                  /* Y 稳定: turn_y -> 85 */
+            if (vision_data.turn_flag) {
+                vision_data.turn_flag = 0;
+                if (check_stable_axis((int16_t)(vision_data.turn_y - LINE_DIST_TARGET_Y), 5)) {
+                    stable_cnt = 0;
+                    hold8_phase = 2;             /* 进入角度稳定阶段 */
+                    step = 8;
+                }
+            }
+            break;
+        case 8:                                  /* 角度稳定: turn_x -> 20(2°) */
+            if (vision_data.turn_flag) {
+                vision_data.turn_flag = 0;
+                if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
+                    stable_cnt = 0;
+                    t = HAL_GetTick();           /* 稳定后开始沉降延时 */
+                    step = 9;
+                }
+            }
+            break;
+        case 9:                                  /* 沉降延时 */
+            if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+                step = 10;
+            }
+            break;
+        case 10:                                 /* 陀螺仪清零 */
+            Odometry_ResetYaw0();
+            Pos_Yaw_Reset();
+            hold8_phase = 3;
+            step = 11;
+            break;
+        case 11:                                 /* 舵机1 -> 3399 (人质位姿) */
+            WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_HOSTAGE_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = HOLD8_HOSTAGE_S1_POS;
+            t = HAL_GetTick();
+            step = 12;
+            break;
+        case 12:                                 /* 舵机2 -> 1581 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_HOSTAGE_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)HOLD8_HOSTAGE_S2_POS, SERVO2_SPEED, SERVO_ACC);
+                t = HAL_GetTick();
+                step = 13;
+            }
+            break;
+        case 13:                                 /* 舵机3 -> 1960 */
+            if (servo_reached(SERVO2_ID, HOLD8_HOSTAGE_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)HOLD8_HOSTAGE_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = HOLD8_HOSTAGE_S3_POS;
+                t = HAL_GetTick();
+                step = 14;
+            }
+            break;
+        case 14:                                 /* 舵机3 到位 -> 完成 */
+            if (servo_reached(SERVO_X_ID, HOLD8_HOSTAGE_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                hold_action_state = HOLD_ACTION_DONE;
+                step = 0;
+            }
+            break;
+        }
+        return;
+    }
 }
 
 /* ============ 激光打靶测试(KEY_4 触发, 与运动系统无关) ============ */
@@ -912,22 +1042,27 @@ void Laser_Track_Test(void)
 
 /* ============ 识别直线小车补偿测试(KEY_4 触发, 与运动系统无关) ============ */
 
-volatile uint8_t test_line_run   = 0;
+volatile uint8_t test_line_run   = 0;   /* 0=关 1=X补偿(61) 2=Y序列(85->角度->清零) */
 volatile uint8_t line_test_ready = 0;  /* 1=位姿就绪且已发B6, 中断才开始补偿 */
+volatile uint8_t line_test_phase = 0;  /* 模式2阶段: 0=摆位姿 1=Y补偿 2=角度稳定 3=已清零 */
+volatile uint8_t hold8_phase = 0;      /* SM_HOLD8阶段: 0=到位 1=Y补偿 2=角度 3=已清零 */
 
-/* 主循环每圈调用: 触发后把舵机切到直线位姿, 延时沉降后再发 B6 06 6B; 车速度补偿由中断 Line_Compensate_Update 做。 */
+/* 主循环每圈调用: 触发后把舵机切到直线位姿, 延时沉降后再发 B6 06 6B。
+ * 模式1 由中断做 X 补偿; 模式2 由本函数跑序列: Y稳定 -> 角度稳定 -> 清零。 */
 void Line_Track_Test(void)
 {
-    static uint8_t  step     = 0;
-    static uint8_t  last_run = 0;
-    static uint32_t t        = 0;
+    static uint8_t  step      = 0;
+    static uint8_t  last_mode = 0;
+    static uint32_t t         = 0;
 
-    if (!test_line_run) { last_run = 0; return; }
+    if (test_line_run == 0) { last_mode = 0; return; }
 
-    if (!last_run) {                 /* 刚触发, 复位 */
-        last_run = 1;
+    if (last_mode != test_line_run) {  /* 模式变了, 复位 */
+        last_mode = test_line_run;
         step = 0;
         line_test_ready = 0;
+        line_test_phase = 0;
+        stable_cnt = 0;
     }
 
     switch (step) {
@@ -966,7 +1101,46 @@ void Line_Track_Test(void)
             step = 5;
         }
         break;
-    case 5:                          /* 补偿由中断 Line_Compensate_Update 持续做, 这里只等关断 */
+    case 5:                          /* 模式1 到此结束; 模式2 等第一帧 C7 再进 Y 补偿 */
+        if (test_line_run == 2 && vision_data.turn_flag) {
+            vision_data.turn_flag = 0;
+            line_test_phase = 1;
+            stable_cnt = 0;
+            step = 6;
+        }
+        break;
+    case 6:                          /* Y 稳定: turn_y -> 85 */
+        if (vision_data.turn_flag) {
+            vision_data.turn_flag = 0;
+            if (check_stable_axis((int16_t)(vision_data.turn_y - LINE_DIST_TARGET_Y), 5)) {
+                stable_cnt = 0;
+                line_test_phase = 2; /* 进入角度稳定阶段 */
+                step = 7;
+            }
+        }
+        break;
+    case 7:                          /* 角度稳定: turn_x -> 20(2°) */
+        if (vision_data.turn_flag) {
+            vision_data.turn_flag = 0;
+            if (check_stable_axis((int16_t)(vision_data.turn_x - LINE_ANGLE_TARGET), 5)) {
+                stable_cnt = 0;
+                t = HAL_GetTick();   /* 稳定后开始沉降延时 */
+                step = 8;
+            }
+        }
+        break;
+    case 8:                          /* 沉降延时 */
+        if (HAL_GetTick() - t >= LINE_SETTLE_MS) {
+            step = 9;
+        }
+        break;
+    case 9:                          /* 陀螺仪清零 */
+        Odometry_ResetYaw0();
+        Pos_Yaw_Reset();
+        line_test_phase = 3;
+        step = 10;
+        break;
+    case 10:                         /* 已清零, 保持(中断锁新航向) */
         break;
     }
 }

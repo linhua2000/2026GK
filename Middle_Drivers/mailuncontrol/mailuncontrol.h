@@ -76,6 +76,16 @@ int Velocity_Wheel4(float Target, int encoder);
 float Pos_X(float Target, float pos_x);                   /* mm  -> mm/s */
 float Pos_Y(float Target, float pos_y);                   /* mm  -> mm/s */
 float Pos_Yaw(float Target, float pos_theta, float Yaw);  /* deg -> rad/s */
+void  Pos_Yaw_Reset(void);                                /* 清 yaw 积分(重设航向零点后) */
+
+/* ============ 识别直线 C7 距离/角度矫正(K4 测试 + SM_MOVE7 共用) ============
+ * turn_y = 到直线距离(原始值), turn_x = 摄像头角度(已×10)。符号=补偿方向, 现场调。 */
+#define LINE_DIST_TARGET    61.0f   /* X轴目标距离(放桶->激光) */
+#define LINE_KP             0.8f    /* turn_y -> vx 增益 */
+#define LINE_DIST_TARGET_Y  85.0f   /* Y轴目标距离(HOLD8 测试) */
+#define LINE_KP_Y           (-0.13f) /* turn_y -> vy 增益(方向取反) */
+#define LINE_ANGLE_TARGET   20      /* 摄像头角度目标(原始 turn_x, 已×10, 即 2°) */
+#define LINE_ANGLE_KP       0.5f    /* 角度环: 角度误差 -> 航向目标增量; 符号现场调 */
 
 /* 视觉误差 -> 小车前后速度(vx): 定义在 mailuncontrol.c */
 extern volatile float   vision_car_vx;            /* mm/s, +前 -后 */

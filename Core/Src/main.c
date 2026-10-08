@@ -253,8 +253,8 @@ int main(void)
         }
 		if (Key_Check(KEY_4, KEY_SINGLE))
         {
-           /* 识别直线小车补偿测试: 按一下开, 再按关 */
-           test_line_run ^= 1;
+           /* 识别直线小车补偿测试: 0=关 -> 1=X补偿(61) -> 2=Y补偿(85) -> 0 */
+           test_line_run = (test_line_run + 1) % 3;
         }
 
     /* HOLD 段动作(视觉握手 + 舵机序列), 主循环每圈调用 */

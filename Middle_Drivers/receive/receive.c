@@ -36,28 +36,28 @@ static uint8_t frame_tail(uint8_t head)
     }
 }
 
-/* ============ C7 turn_y 中值滤波(去野值) ============
+/* ============ C7 turn_x/turn_y 中值滤波(去野值) ============
  * 环形存最近 3 个值取中值; 不足 3 帧返回原值。偶发的大跳变被中值吃掉。 */
-static int16_t turn_y_hist[3];
-static uint8_t  turn_y_cnt = 0;
+static int16_t turn_x_hist[3]; static uint8_t turn_x_cnt = 0;
+static int16_t turn_y_hist[3]; static uint8_t turn_y_cnt = 0;
 
-static void turn_y_filter_reset(void)
-{
-    turn_y_cnt = 0;
-    turn_y_hist[0] = turn_y_hist[1] = turn_y_hist[2] = 0;
-}
-
-static int16_t turn_y_filter(int16_t v)
+static int16_t median3(int16_t *h, uint8_t *cnt, int16_t v)
 {
     int16_t a, b, c, t;
-    turn_y_hist[turn_y_cnt % 3] = v;
-    turn_y_cnt++;
-    if (turn_y_cnt < 3) return v;          /* 预热: 不足 3 帧直接返回 */
-    a = turn_y_hist[0]; b = turn_y_hist[1]; c = turn_y_hist[2];
+    h[*cnt % 3] = v;
+    (*cnt)++;
+    if (*cnt < 3) return v;               /* 预热: 不足 3 帧直接返回 */
+    a = h[0]; b = h[1]; c = h[2];
     if (a > b) { t = a; a = b; b = t; }
     if (b > c) { t = b; b = c; c = t; }
     if (a > b) { t = a; a = b; b = t; }
-    return b;                              /* b 是中值 */
+    return b;                             /* b 是中值 */
+}
+
+static void turn_filter_reset(void)
+{
+    turn_x_cnt = 0; turn_x_hist[0] = turn_x_hist[1] = turn_x_hist[2] = 0;
+    turn_y_cnt = 0; turn_y_hist[0] = turn_y_hist[1] = turn_y_hist[2] = 0;
 }
 
 /* 收满一帧且帧尾校验通过后, 把数据写入 vision_data */
@@ -77,8 +77,8 @@ static void dispatch_frame(void)
             vision_data.track_flag = 1;
             break;
         case FRAME_TURN_HEAD:
-            vision_data.turn_x = (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8));
-            vision_data.turn_y = turn_y_filter((int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8)));
+            vision_data.turn_x = median3(turn_x_hist, &turn_x_cnt, (int16_t)(rx_buf[1] | ((uint16_t)rx_buf[2] << 8)));
+            vision_data.turn_y = median3(turn_y_hist, &turn_y_cnt, (int16_t)(rx_buf[3] | ((uint16_t)rx_buf[4] << 8)));
             vision_data.turn_flag = 1;
             break;
         case FRAME_GRAB_HEAD:
@@ -213,7 +213,7 @@ void Vision_Send_B6(uint8_t cmd)
     uint8_t frame[3] = {FRAME_TRACK_HEAD, cmd, FRAME_TRACK_TAIL};
     vision_data.last_tx_cmd = cmd;
     vision_data.rx_status   = 0;   /* 发新命令, 清接收状态 */
-    if (cmd == 0x06) turn_y_filter_reset();   /* 切直线模式: 重置 turn_y 中值滤波 */
+    if (cmd == 0x06) turn_filter_reset();   /* 切直线模式: 重置 turn_x/turn_y 中值滤波 */
     HAL_UART_Transmit(&huart4, frame, 3, 10);
 }
 
