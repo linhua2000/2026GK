@@ -83,7 +83,7 @@ void  Pos_Yaw_Reset(void);                                /* 清 yaw 积分(重�
 #define LINE_DIST_TARGET    61.0f   /* X轴目标距离(放桶->激光) */
 #define LINE_KP             0.8f    /* turn_y -> vx 增益 */
 #define LINE_DIST_TARGET_Y  85.0f   /* Y轴目标距离(HOLD8 测试) */
-#define LINE_KP_Y           (-0.13f) /* turn_y -> vy 增益(方向取反) */
+#define LINE_KP_Y           (-0.5f) /* turn_y -> vy 增益(方向取反) */
 #define LINE_ANGLE_TARGET   20      /* 摄像头角度目标(原始 turn_x, 已×10, 即 2°) */
 #define LINE_ANGLE_KP       0.5f    /* 角度环: 角度误差 -> 航向目标增量; 符号现场调 */
 
