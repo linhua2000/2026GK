@@ -510,6 +510,7 @@ static void StateMachine_Update(void)
                      ? (LINE_KP_Y * ((float)vision_data.turn_y - 85.0f))
                      : 0.0f;
 			Set_Vel(-100, vy, 0);
+//			Set_Vel(-100, vy, Pos_Yaw(0, odometry.theta, -0.0));
 //          Set_Vel(-100, vy, Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0));
         }
         if (odometry.x < 50.0f+Slip_Offset) sm_phase = SM_DONE;
