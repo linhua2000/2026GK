@@ -419,7 +419,7 @@ static void StateMachine_Update(void)
         break;
 
     case SM_HOLD7:
-        Set_Vel(Pos_X(2649.0f+Slip_Offset,odometry.x),Pos_Y(-850,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+        Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0)); //停住不回拉(保留视觉矫正后的位置), 只锁航向
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 3; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part3 追靶+激光+舵机 */
         if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE8; }
         break;
