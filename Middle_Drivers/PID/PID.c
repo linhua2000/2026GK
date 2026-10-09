@@ -714,14 +714,14 @@ void Hold_Action_Update(void)
             break;
         case 28:                                 /* 舵机3 -> 1003(识别直线位姿) */
             if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)1003, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = 1003;
+                WritePosEx(SERVO_X_ID, (int16_t)900, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = 900;
                 t = HAL_GetTick();
                 step = 29;
             }
             break;
         case 29:                                 /* 舵机1 -> 3398 */
-            if (servo_reached(SERVO_X_ID, 1003) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, 900) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
                 servo_pos_y = LINE_RECOG_S1_POS;
                 t = HAL_GetTick();

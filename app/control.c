@@ -206,7 +206,7 @@ typedef enum {
 #define R_HOLD2_CY      0.0f    /* y 保持(旧: Pos_Y(670)) */
 
 /* ---- MOVE3: 沿 +X 长距离直行(后轮打滑段) ★ ---- */
-#define R_MOVE3_D     938.0f    /* 前进距离(旧: x>1630+Slip=1719; 起点 x≈750) */
+#define R_MOVE3_D     900.0f    /* 前进距离(旧: x>1630+Slip=1719; 起点 x≈750) */
 #define R_MOVE3_C       0.0f    /* y 保持(旧: Pos_Y(670)) */
 
 /* ---- HOLD3: 视觉矫正 X距离+角度 ◎ x 由视觉 vx 驱动(不用 R_HOLD3_CX), 仅 y 保持 ---- */
@@ -255,13 +255,13 @@ typedef enum {
 /* ---- HOLD1 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD1_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°), 与 MOVE7 的 ±2 一致 */
 #define HOLD1_DIST_TOL    5       /* X距离容差: |turn_y - 61| ≤ 5 */
-#define HOLD1_STABLE_CNT  3       /* 连续满足容差的帧数, 达到才认为矫正完成(去抖) */
+#define HOLD1_STABLE_CNT  20       /* 连续满足容差的帧数, 达到才认为矫正完成(去抖) */
 #define HOLD1_TIMEOUT_MS  5000U   /* 兜底超时(ms): 2s 没达标也强制进扫码阶段, 避免卡死 */
 
 /* ---- HOLD3 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD3_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°) */
 #define HOLD3_DIST_TOL    5       /* X距离容差: |turn_y - R_HOLD3_DIST| ≤ 5 */
-#define HOLD3_STABLE_CNT  3       /* 连续满足容差的帧数(去抖) */
+#define HOLD3_STABLE_CNT  20      /* 连续满足容差的帧数(去抖) */
 #define HOLD3_TIMEOUT_MS  5000U   /* 兜底超时(ms): 2s 没达标也进 MOVE4 */
 
 static SM_State  sm_phase = SM_IDLE;
