@@ -243,14 +243,14 @@ typedef enum {
 
 /* ---- HOLD8: 拉回位姿 + 视觉 Y/角度矫正 (part5) ★◎ ---- */
 #define R_HOLD8_CX   -238.0f    /* x 拉回(旧: Pos_X(2400+Slip)=2489; 起点 x≈2727) */
-#define R_HOLD8_CY    -90.0f    /* y 拉回(旧: Pos_Y(-1490); 起点 y≈-1400) */
+#define R_HOLD8_CY    -65.0f    /* y 拉回(旧: Pos_Y(-1490); 起点 y≈-1400) */
 #define R_HOLD8_POS_TOL   20.0f    /* HOLD8 到位容差 mm(原 PID.c HOLD8_POS_TOL) */
 
 /* ---- MOVE9: 沿 -X 后退, 只锁航向 ★ ---- */
 #define R_MOVE9_D    -750.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
 
 /* ---- MOVE10: 沿 -X 退到终点, 视觉 Y 补偿 ★◎ ---- */
-#define R_MOVE10_D  -1250.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
+#define R_MOVE10_D  -1265.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
 
 /* ---- HOLD1 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD1_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°), 与 MOVE7 的 ±2 一致 */
@@ -497,6 +497,7 @@ static void StateMachine_Update(void)
 			No_rear_wheels = 0;
             No_front_wheels = 0;                        /* 出段: 恢复四轮 */
             Vision_Send_B6(0x06);                       /* 切直线模式+清turn滤波, 给HOLD3 X矫正 */
+            vision_data.turn_flag = 0;
             sm_t = HAL_GetTick(); hold3_cnt = 0; sm_phase = SM_HOLD3;
         }
         break;
@@ -565,19 +566,20 @@ static void StateMachine_Update(void)
 
     case SM_MOVE7:      /* 右移 R_MOVE7_D; 视觉 C7 距离矫正 x + 角度矫正(目标0) */
         {
-            float vx = 0.0f, w = 0.0f;
-            if (vision_data.turn_flag) {   /* 无新帧不控: 旧的 turn_x 不拿来算航向, 免得进段自转 */
-                vx = LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET);
-                w  = Pos_Yaw(0.0, vision_data.turn_x * 0.099f, -0.0);
-            }
-            Set_Vel(vx, -100, w);
-            if (vision_data.turn_flag && vision_data.turn_x >= -2 && vision_data.turn_x <= 2) {
-                Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
-                Pos_Yaw_Reset();
+            if (!vision_data.turn_flag) {          /* 等第一帧(树莓派启动延迟): 原地不动 */
+                Set_Vel(0, 0, 0);
+            } else {
+                float vx = LINE_KP * ((float)vision_data.turn_y - LINE_DIST_TARGET);
+                float w  = Pos_Yaw(0.0, vision_data.turn_x * 0.099f, -0.0);
+                Set_Vel(vx, -100, w);
+                if (vision_data.turn_x >= -2 && vision_data.turn_x <= 2) {
+                    Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+                    Pos_Yaw_Reset();
+                }
             }
         }
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < sm_ey + R_MOVE7_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }//
+        if (vision_data.turn_flag && odometry.y < sm_ey + R_MOVE7_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD7; }//
         break;
 
     case SM_HOLD7:
@@ -645,7 +647,8 @@ static void StateMachine_Update(void)
         break;
 
     case SM_MOVE9_ADJUST:      /* 短距离后退一小段(x 负向), 相对距离 */
-        Set_Vel(-100, 0, Pos_Yaw(0, odometry.theta, 0.0));
+        Set_Vel(-100, 0, 0);
+        // Set_Vel(-100, 0, Pos_Yaw(0, odometry.theta, 0.0));
 //        if (odometry.x <600) {sm_phase = SM_HOLD9_POSE;}
         if (odometry.x < sm_x0 - 310.0f) sm_phase = SM_HOLD9_POSE;   /* 100mm 是占位符, 你调 */
         break;
@@ -658,13 +661,13 @@ static void StateMachine_Update(void)
 
     case SM_MOVE10:     /* 后退 R_MOVE10_D 到终点, y 由视觉距离补偿(目标85) */
      {
-            float vy = vision_data.turn_flag
-                     ? (LINE_KP_Y * ((float)vision_data.turn_y - 85.0f))
-                     : 0.0f;
-            float w  = vision_data.turn_flag
-                     ? Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0)
-                     : Pos_Yaw(0.0f, odometry.theta, -0.0);
-            Set_Vel(-100, vy, w);
+            if (!vision_data.turn_flag) {          /* 等第一帧(树莓派启动延迟): 原地不动 */
+                Set_Vel(0, 0, 0);
+            } else {
+                float vy = LINE_KP_Y * ((float)vision_data.turn_y - 85.0f);
+                float w  = Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0);
+                Set_Vel(-100, vy, w);
+            }
     }
 
 //         {
@@ -675,7 +678,7 @@ static void StateMachine_Update(void)
 // //			Set_Vel(-100, vy, Pos_Yaw(0, odometry.theta, -0.0));
 // //          Set_Vel(-100, vy, Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0));
 //         }
-        if (odometry.x < sm_ex + R_MOVE10_D) sm_phase = SM_DONE;
+        if (vision_data.turn_flag && odometry.x < sm_ex + R_MOVE10_D) sm_phase = SM_DONE;
         break;
 
     case SM_DONE:
