@@ -449,25 +449,27 @@ static void StateMachine_Update(void)
     case SM_HOLD1:      /* 阶段A: 视觉矫正 X距离(turn_y->61)+角度(turn_x->0); 稳/超时后 阶段B: 停住锁航向, part1 扫码 */
         if (!hold1_aligned) {
             float vx = vision_data.turn_flag ? (LINE_KP * ((float)vision_data.turn_y - R_HOLD1_DIST)) : 0.0f;
-            Set_Vel(vx, Pos_Y(sm_ey + R_HOLD1_CY, odometry.y), 0.0f);   /* 只锁航向, 不锁角度(由视觉给) */  
+            float w  = vision_data.turn_flag ? Pos_Yaw(0.0f, vision_data.turn_x * 0.1f, -0.0f) : 0.0f;
+            Set_Vel(vx, Pos_Y(sm_ey + R_HOLD1_CY, odometry.y), w);   /* 角度由视觉 turn_x 矫正(目标 0°) */
 
             if (vision_data.turn_flag &&
                 vision_data.turn_x >= -HOLD1_ANGLE_TOL && vision_data.turn_x <= HOLD1_ANGLE_TOL &&
                 (float)vision_data.turn_y >= R_HOLD1_DIST - HOLD1_DIST_TOL &&
                 (float)vision_data.turn_y <= R_HOLD1_DIST + HOLD1_DIST_TOL) {
                 if (++hold1_cnt >= HOLD1_STABLE_CNT) {
-                    //Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+                    Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
                     Pos_Yaw_Reset();
                     hold1_aligned = 1;
                 }
             } else {
                 hold1_cnt = 0;
             }
-
-            if ((HAL_GetTick() - sm_t) >= HOLD1_TIMEOUT_MS) hold1_aligned = 1;  /* 超时兜底 */
+            if ((HAL_GetTick() - sm_t) >= HOLD1_TIMEOUT_MS) 
+							
+							hold1_aligned = 1;  /* 超时兜底 */
         } else {
             Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0));   /* 停住 + 锁航向, 让 part1 扫码 */
-            if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 扫码+舵机复位 */
+            if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 扫码+舵机复位 *///
             if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }
         }
         break;
@@ -504,22 +506,24 @@ static void StateMachine_Update(void)
     case SM_HOLD3:      /* 视觉矫正 X距离(turn_y->R_HOLD3_DIST)+角度(turn_x->0); 连续3帧达标或2s超时 -> MOVE4 */
         {
             float vx = vision_data.turn_flag ? (LINE_KP * ((float)vision_data.turn_y - R_HOLD3_DIST)) : 0.0f;
-            Set_Vel(vx, Pos_Y(sm_ey + R_HOLD3_CY, odometry.y), 0.0f);   /* 只锁航向, 不锁角度(由视觉给) */  
+            float w  = vision_data.turn_flag ? Pos_Yaw(0.0f, vision_data.turn_x * 0.1f, -0.0f) : 0.0f;
+            Set_Vel(vx, Pos_Y(sm_ey + R_HOLD3_CY, odometry.y), w);   /* 只锁航向, 不锁角度(由视觉给) */  
 
             if (vision_data.turn_flag &&
                 vision_data.turn_x >= -HOLD3_ANGLE_TOL && vision_data.turn_x <= HOLD3_ANGLE_TOL &&
                 (float)vision_data.turn_y >= R_HOLD3_DIST - HOLD3_DIST_TOL &&
                 (float)vision_data.turn_y <= R_HOLD3_DIST + HOLD3_DIST_TOL) {
                 if (++hold3_cnt >= HOLD3_STABLE_CNT) {
-                    //Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+                    Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
                     Pos_Yaw_Reset();
-                    sm_t = HAL_GetTick(); //sm_phase = SM_MOVE4;
+                    sm_t = HAL_GetTick(); sm_phase = SM_MOVE4;
                 }
             } else {
                 hold3_cnt = 0;
             }
 
-            if ((HAL_GetTick() - sm_t) >= HOLD3_TIMEOUT_MS) { sm_t = HAL_GetTick();	sm_phase = SM_MOVE4; }  /* 超时兜底 *///
+            if ((HAL_GetTick() - sm_t) >= HOLD3_TIMEOUT_MS) { sm_t = HAL_GetTick();Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+						Pos_Yaw_Reset();sm_phase = SM_MOVE4;	 }  /* 超时兜底 *///
         }
         break;
 
