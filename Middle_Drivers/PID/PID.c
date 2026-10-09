@@ -41,7 +41,7 @@
 /* ============ HOLD 段动作(part1: HOLD1 握手+复位) ============ */
 #define HOLD1_SERVO1_POS       3398//3389   /* 舵机1 Y */
 #define HOLD1_SERVO2_POS       1354//1383   /* 舵机2 肘 */
-#define HOLD1_SERVO3_POS       950//950    /* 舵机3 X */
+#define HOLD1_SERVO3_POS       922//950    /* 舵机3 X */
 #define HOLD1_SERVO4_POS       2543//2543   /* 舵机4 夹爪 */
 #define HOLD1_WAIT_MS          500    /* 相邻舵机到位延时(可调) */
 
@@ -146,7 +146,7 @@
 /* ============ 识别直线位姿(视觉 C7, 独立测试用) ============ */
 #define LINE_RECOG_S1_POS      3398   /* 舵机1 Y */
 #define LINE_RECOG_S2_POS      1354   /* 舵机2 肘 */
-#define LINE_RECOG_S3_POS      950    /* 舵机3 X */
+#define LINE_RECOG_S3_POS      922    /* 舵机3 X */
 #define LINE_SETTLE_MS         1000    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
 #define LINE_POSE_SETTLE_MS    500     /* part6: 摆完 HOLD8 看直线位姿、发 B6 06 前的沉降延时 */
 
@@ -712,16 +712,16 @@ void Hold_Action_Update(void)
             t = HAL_GetTick();
             step = 28;
             break;
-        case 28:                                 /* 舵机3 -> 950 */
+        case 28:                                 /* 舵机3 -> 1003(识别直线位姿) */
             if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)LINE_RECOG_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = LINE_RECOG_S3_POS;
+                WritePosEx(SERVO_X_ID, (int16_t)1003, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = 1003;
                 t = HAL_GetTick();
                 step = 29;
             }
             break;
         case 29:                                 /* 舵机1 -> 3398 */
-            if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, 1003) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
                 servo_pos_y = LINE_RECOG_S1_POS;
                 t = HAL_GetTick();
