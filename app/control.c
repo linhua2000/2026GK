@@ -239,7 +239,7 @@ typedef enum {
 #define R_MOVE7_D   -1700.0f    /* 右移距离(旧: y<-840; 起点 y≈860); vx/角度由视觉给 */
 
 /* ---- MOVE8: 沿 -Y 右移, 只锁航向 ★ ---- */
-#define R_MOVE8_D    -585.0f    /* 右移距离(旧: y<-1400; 起点 y≈-840) */
+#define R_MOVE8_D    -603.0f    /* 右移距离(旧: y<-1400; 起点 y≈-840) */
 
 /* ---- HOLD8: 拉回位姿 + 视觉 Y/角度矫正 (part5) ★◎ ---- */
 #define R_HOLD8_CX   -0.0f    /* x 拉回(旧: Pos_X(2400+Slip)=2489; 起点 x≈2727) */
@@ -247,10 +247,10 @@ typedef enum {
 #define R_HOLD8_POS_TOL   20.0f    /* HOLD8 到位容差 mm(原 PID.c HOLD8_POS_TOL) */
 
 /* ---- MOVE9: 沿 -X 后退, 只锁航向 ★ ---- */
-#define R_MOVE9_D    -975.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
+#define R_MOVE9_D    -1130.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
 
 /* ---- MOVE10: 沿 -X 退到终点, 视觉 Y 补偿 ★◎ ---- */
-#define R_MOVE10_D  -1150.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
+#define R_MOVE10_D  -1210.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
 
 /* ---- HOLD1 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD1_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°), 与 MOVE7 的 ±2 一致 */
@@ -653,14 +653,15 @@ static void StateMachine_Update(void)
             Set_Vel(vx, vy, Pos_Yaw(0, odometry.theta, 0));
         }
         if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 4; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part4 抓人质 */
-        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_x0 = odometry.x; sm_phase = SM_MOVE9_ADJUST; }
+        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; 
+            ; sm_phase = SM_MOVE9_ADJUST; }//sm_x0 = odometry.x
         break;
 
-    case SM_MOVE9_ADJUST:      /* 短距离后退一小段(x 负向), 相对距离 */
+    case SM_MOVE9_ADJUST:      /* 单向后退到绝对位置 sm_x0-200 (sm_x0 在 MOVE9 出口取) */
         Set_Vel(-100, 0, 0);
         // Set_Vel(-100, 0, Pos_Yaw(0, odometry.theta, 0.0));
 //        if (odometry.x <600) {sm_phase = SM_HOLD9_POSE;}
-        if (odometry.x < sm_x0 - 310.0f) sm_phase = SM_HOLD9_POSE;   /* 100mm 是占位符, 你调 */
+        if (odometry.x < sm_x0 - 200.0f) sm_phase = SM_HOLD9_POSE;   /* 100mm 是占位符, 你调 */
         break;
 
     case SM_HOLD9_POSE:        /* 车停住, 摆 HOLD8 看直线位姿 + 发 B6 06 (part6) */
@@ -777,8 +778,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
            //(加机械臂全层调试)
 			StateMachine_Update();
 
-//			Set_Vel(Pos_X(0,odometry.x),-100,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
-		// Set_Vel(-100,Pos_Y(0,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
+			//Set_Vel(Pos_X(100,odometry.x),0,Pos_Yaw(0,odometry.theta,0)); //角度,x不变移动y
+			//Set_Vel(0,Pos_Y(100,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
 //			Set_Vel(Pos_X(0,odometry.x),100,0);     
 //			Set_Vel(100,Pos_Y(0,odometry.y),0);
 //			Set_Vel(0, 0, Pos_Yaw(0,odometry.theta,0));//角度不变移动x，y
