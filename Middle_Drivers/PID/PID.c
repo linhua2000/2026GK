@@ -49,8 +49,7 @@
 #define TARGET_SERVO1_POS      2753   /* 舵机1 Y */
 #define TARGET_SERVO2_POS      1492   /* 舵机2 肘 */
 #define TARGET_SERVO4_POS      2543   /* 舵机4 夹爪 */
-
-#define LASER_ON_MS            2000   /* 激光打开时长 */
+#define LASER_ON_MS            3500   /* 激光打开时长 */
 
 /* ============ HOLD 段动作(part4: HOLD9 抓人质) ============ */
 #define HOSTAGE_S1_INIT        3399   /* 舵机1 Y 初始(慢巡/识别姿态, 同激光复位后) */
@@ -149,7 +148,7 @@
 /* ============ HOLD8 看直线位姿 ============ */
 #define HOLD8_S1_POS           3398   /* 舵机1 Y */
 #define HOLD8_S2_POS           1131   /* 舵机2 肘 */
-#define HOLD8_S3_POS           1939   /* 舵机3 X */
+#define HOLD8_S3_POS           1980   /* 舵机3 X */
 
 /* ============ HOLD8 末尾 -> 识别人质位姿 ============ */
 #define HOLD8_HOSTAGE_S1_POS   3399   /* 舵机1 Y(同 HOSTAGE_S1_INIT) */
