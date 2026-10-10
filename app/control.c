@@ -214,7 +214,7 @@ typedef enum {
 #define R_HOLD3_CY      0.0f    /* y 保持(旧: Pos_Y(670)) */
 
 /* ---- MOVE4: 沿 +Y 左移 ★ ---- */
-#define R_MOVE4_D     720.0f    /* 左移距离(旧: y>1390; 起点 y≈670) */
+#define R_MOVE4_D     730.0f    /* 左移距离(旧: y>1390; 起点 y≈670) */
 #define R_MOVE4_C       0.0f    /* x 保持(旧: Pos_X(1630+Slip)) */
 
 /* ---- HOLD4: 停车保持(定时) ★ ---- */
@@ -230,7 +230,7 @@ typedef enum {
 #define R_HOLD5_CY   -218.0f    /* y 收(旧: Pos_Y(1290); 起点 y≈1508) */
 
 /* ---- MOVE6: 沿 -Y 右移, 只锁航向(不保持 x) ★ ---- */
-#define R_MOVE6_D    -430.0f    /* 右移距离(旧: y<860; 起点 y≈1290) */
+#define R_MOVE6_D    -440.0f    /* 右移距离(旧: y<860; 起点 y≈1290) */
 
 /* ---- HOLD6: 视觉追球保持 (part2) ◎ ---- */
 #define R_HOLD6_CX     -8.0f    /* x 保持(旧: Pos_X(2630+Slip)=2719; 起点 x≈2727) */
@@ -239,30 +239,36 @@ typedef enum {
 #define R_MOVE7_D   -1700.0f    /* 右移距离(旧: y<-840; 起点 y≈860); vx/角度由视觉给 */
 
 /* ---- MOVE8: 沿 -Y 右移, 只锁航向 ★ ---- */
-#define R_MOVE8_D    -560.0f    /* 右移距离(旧: y<-1400; 起点 y≈-840) */
+#define R_MOVE8_D    -585.0f    /* 右移距离(旧: y<-1400; 起点 y≈-840) */
 
 /* ---- HOLD8: 拉回位姿 + 视觉 Y/角度矫正 (part5) ★◎ ---- */
-#define R_HOLD8_CX   -238.0f    /* x 拉回(旧: Pos_X(2400+Slip)=2489; 起点 x≈2727) */
-#define R_HOLD8_CY    -65.0f    /* y 拉回(旧: Pos_Y(-1490); 起点 y≈-1400) */
+#define R_HOLD8_CX   -0.0f    /* x 拉回(旧: Pos_X(2400+Slip)=2489; 起点 x≈2727) */
+#define R_HOLD8_CY    -115.0f    /* y 拉回(旧: Pos_Y(-1490); 起点 y≈-1400) */
 #define R_HOLD8_POS_TOL   20.0f    /* HOLD8 到位容差 mm(原 PID.c HOLD8_POS_TOL) */
 
 /* ---- MOVE9: 沿 -X 后退, 只锁航向 ★ ---- */
-#define R_MOVE9_D    -750.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
+#define R_MOVE9_D    -975.0f    /* 后退距离(旧: x<1650+Slip=1739; 起点 x≈2489) */
 
 /* ---- MOVE10: 沿 -X 退到终点, 视觉 Y 补偿 ★◎ ---- */
-#define R_MOVE10_D  -1265.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
+#define R_MOVE10_D  -1150.0f    /* 后退距离(旧: x<50+Slip=139; 起点 x≈1429) */
 
 /* ---- HOLD1 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD1_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°), 与 MOVE7 的 ±2 一致 */
 #define HOLD1_DIST_TOL    5       /* X距离容差: |turn_y - 61| ≤ 5 */
-#define HOLD1_STABLE_CNT  20       /* 连续满足容差的帧数, 达到才认为矫正完成(去抖) */
-#define HOLD1_TIMEOUT_MS  5000U   /* 兜底超时(ms): 2s 没达标也强制进扫码阶段, 避免卡死 */
+#define HOLD1_STABLE_CNT  80       /* 连续满足容差的帧数, 达到才认为矫正完成(去抖) */
+#define HOLD1_TIMEOUT_MS  50000U   /* 兜底超时(ms): 2s 没达标也强制进扫码阶段, 避免卡死 */
 
 /* ---- HOLD3 视觉矫正(X距离+角度)完成判据 ---- */
 #define HOLD3_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°) */
 #define HOLD3_DIST_TOL    5       /* X距离容差: |turn_y - R_HOLD3_DIST| ≤ 5 */
-#define HOLD3_STABLE_CNT  20      /* 连续满足容差的帧数(去抖) */
-#define HOLD3_TIMEOUT_MS  5000U   /* 兜底超时(ms): 2s 没达标也进 MOVE4 */
+#define HOLD3_STABLE_CNT  80      /* 连续满足容差的帧数(去抖) */
+#define HOLD3_TIMEOUT_MS  50000U   /* 兜底超时(ms): 2s 没达标也进 MOVE4 */
+
+/* ---- HOLD8 视觉矫正(Y距离+角度)完成判据 ---- */
+#define HOLD8_ANGLE_TOL   2       /* 角度容差: |turn_x| ≤ 2 (即 0.2°) */
+#define HOLD8_DIST_TOL    5       /* Y距离容差: |turn_y - LINE_DIST_TARGET_Y| ≤ 5 */
+#define HOLD8_STABLE_CNT  80      /* 连续满足容差的 tick 数(去抖), 与 HOLD1/HOLD3 一致 */
+#define HOLD8_TIMEOUT_MS  50000U  /* 兜底超时(ms), 与 HOLD1/HOLD3 一致 */
 
 static SM_State  sm_phase = SM_IDLE;
 static uint32_t  sm_t;                  /* 进入 IDLE / HOLD 的时刻 */
@@ -273,6 +279,8 @@ static SM_State  sm_last = SM_IDLE;     /* 检测状态切换, 用于抓进入�
 static uint8_t   hold1_aligned = 0;     /* HOLD1: 1=视觉矫正完成, 进扫码阶段 */
 static uint8_t   hold1_cnt     = 0;     /* HOLD1: 连续满足容差的帧数 */
 static uint8_t   hold3_cnt     = 0;     /* HOLD3: 连续满足容差的帧数 */
+static uint8_t   hold8_cnt     = 0;     /* HOLD8: 连续满足容差的 tick 数 */
+static uint8_t   hold8_aligned = 0;     /* HOLD8: 1=视觉矫正完成, 进切人质位姿阶段 */
 
 //路线test
 static void line_test(void)
@@ -470,7 +478,7 @@ static void StateMachine_Update(void)
         } else {
             Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0));   /* 停住 + 锁航向, 让 part1 扫码 */
             if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 1; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part1 扫码+舵机复位 *///
-            if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }
+            if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE2; }//
         }
         break;
 
@@ -523,8 +531,8 @@ static void StateMachine_Update(void)
                 hold3_cnt = 0;
             }
 
-            if ((HAL_GetTick() - sm_t) >= HOLD3_TIMEOUT_MS) { sm_t = HAL_GetTick();Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
-						Pos_Yaw_Reset();sm_phase = SM_MOVE4;	 }  /* 超时兜底 *///
+            if ((HAL_GetTick() - sm_t) >= HOLD3_TIMEOUT_MS) { sm_t = HAL_GetTick();  /* 视觉角度≈0 -> 重设航向零点 */
+				Pos_Yaw_Reset();sm_phase = SM_MOVE4;}  /* 超时兜底 *///
         }
         break;
 
@@ -595,41 +603,39 @@ static void StateMachine_Update(void)
     case SM_MOVE8:      /* 右移 R_MOVE8_D（只锁航向） */
         Set_Vel(0,-100,Pos_Yaw(0.1,odometry.theta,0)); //角度,x不变移动y
 		//Set_Vel(100,Pos_Y(650,odometry.y),Pos_Yaw(0,odometry.theta,0)); //角度,y不变移动x
-        if (odometry.y < sm_ey + R_MOVE8_D) { sm_t = HAL_GetTick(); sm_phase = SM_HOLD8; }
-        break;
-     case SM_HOLD8:
-//		Set_Vel(0, 0, 0);
-		{
-			float vx = Pos_X(sm_ex + R_HOLD8_CX, odometry.x);
-			float vy, w;
-			if (hold8_phase == 0) {                       /* 到位: 拉回位姿 */
-				vy = Pos_Y(sm_ey + R_HOLD8_CY, odometry.y);
-				w  = Pos_Yaw(0, odometry.theta, 0);
-			} else if (hold8_phase == 1) {                /* Y 补偿(85) */
-				vy = LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y);
-				w  = Pos_Yaw(0, odometry.theta, 0);
-			} else if (hold8_phase == 2) {                /* 角度矫正(目标3.6° = turn_x 36) */
-				vy = 0.0f;
-				w  = Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0);
-			}
-			else if (hold8_phase == 3)
-			{vx = 0.0f;
-			 vy = 0.0f;
-			 w  =0 ;
-			}
-			else {                                      /* phase 3: 直接走, 不拉回 */
-				vx = 0.0f;
-				vy = 0.0f;
-				w  = Pos_Yaw(0, odometry.theta, 0);
-			}
-			Set_Vel(vx, vy, w);
-		}
-        if (hold_action_state == HOLD_ACTION_IDLE &&
-            fabsf(odometry.x - (sm_ex + R_HOLD8_CX)) < R_HOLD8_POS_TOL &&
-            fabsf(odometry.y - (sm_ey + R_HOLD8_CY)) < R_HOLD8_POS_TOL) {
-            hold_action_id = 5; hold_action_state = HOLD_ACTION_RUN;
+        if (odometry.y < sm_ey + R_MOVE8_D) {
+            Vision_Send_B6(0x06);       /* 切直线模式+清turn滤波, 给HOLD8 Y/角度矫正 */
+            vision_data.turn_flag = 0;
+            sm_t = HAL_GetTick(); hold8_cnt = 0; hold8_aligned = 0; sm_phase = SM_HOLD8;
         }
-        if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE9; }//
+        break;
+     case SM_HOLD8:      /* 阶段A: 视觉矫正 Y距离(turn_y->93)+角度(turn_x->0); 稳/超时 -> 阶段B: 停住切人质位姿(part8) -> MOVE9 */
+        if (!hold8_aligned)
+         {
+            float vy = vision_data.turn_flag ? (LINE_KP_Y * ((float)vision_data.turn_y - LINE_DIST_TARGET_Y)) : 0.0f;
+            float w  = vision_data.turn_flag ? Pos_Yaw(0.0f, vision_data.turn_x * 0.1f, -0.0f) : 0.0f;
+            float vx = Pos_X(sm_ex + R_HOLD8_CX, odometry.x);   /* X 拉回并保持(不参与视觉矫正) */
+            Set_Vel(vx, vy, w);
+
+            if (vision_data.turn_flag &&
+                vision_data.turn_x >= -HOLD8_ANGLE_TOL && vision_data.turn_x <= HOLD8_ANGLE_TOL &&
+                (float)vision_data.turn_y >= LINE_DIST_TARGET_Y - HOLD8_DIST_TOL &&
+                (float)vision_data.turn_y <= LINE_DIST_TARGET_Y + HOLD8_DIST_TOL) {
+                if (++hold8_cnt >= HOLD8_STABLE_CNT) {
+                    Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+                    Pos_Yaw_Reset();
+                    hold8_aligned = 1;
+                }
+            } else {
+                hold8_cnt = 0;
+            }
+
+            if ((HAL_GetTick() - sm_t) >= HOLD8_TIMEOUT_MS) hold8_aligned = 1;   /* 超时兜底 */
+        } else {
+            Set_Vel(0, 0, Pos_Yaw(0, odometry.theta, 0));   /* 停住 + 锁航向, 切人质位姿 */
+            if (hold_action_state == HOLD_ACTION_IDLE) { hold_action_id = 8; hold_action_state = HOLD_ACTION_RUN; }  /* 请求主循环做 part8 人质位姿 */
+            if (hold_action_state == HOLD_ACTION_DONE) { hold_action_state = HOLD_ACTION_IDLE; hold_action_id = 0; sm_phase = SM_MOVE9; }
+        }
         break;
 
     case SM_MOVE9:      /* 后退 R_MOVE9_D（只锁航向） */
@@ -669,8 +675,12 @@ static void StateMachine_Update(void)
                 Set_Vel(0, 0, 0);
             } else {
                 float vy = LINE_KP_Y * ((float)vision_data.turn_y - 85.0f);
-                float w  = Pos_Yaw(LINE_ANGLE_TARGET * 0.1f, vision_data.turn_x * 0.1f, -0.0);
+                float w  = Pos_Yaw(0, vision_data.turn_x * 0.1f, -0.0);
                 Set_Vel(-100, vy, w);
+                if (vision_data.turn_x >= -2 && vision_data.turn_x <= 2) {
+                    Odometry_ResetYaw0();   /* 视觉角度≈0 -> 重设航向零点 */
+                    Pos_Yaw_Reset();
+                }
             }
     }
 

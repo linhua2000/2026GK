@@ -50,11 +50,6 @@
 #define TARGET_SERVO2_POS      1492   /* 舵机2 肘 */
 #define TARGET_SERVO4_POS      2543   /* 舵机4 夹爪 */
 
-/* ============ part3 识别完激光后的复位位姿 ============ */
-#define LASER_END_S1_POS      3399   /* 舵机1 Y */
-#define LASER_END_S2_POS      1581   /* 舵机2 肘 */
-#define LASER_END_S3_POS      950   /* 舵机3 X */
-#define LASER_END_S4_POS      2543   /* 舵机4 夹爪 */
 #define LASER_ON_MS            1000   /* 激光打开时长 */
 
 /* ============ HOLD 段动作(part4: HOLD9 抓人质) ============ */
@@ -147,13 +142,14 @@
 #define LINE_RECOG_S1_POS      3398   /* 舵机1 Y */
 #define LINE_RECOG_S2_POS      1354   /* 舵机2 肘 */
 #define LINE_RECOG_S3_POS      922    /* 舵机3 X */
+#define LINE_ANGLE_HOLD7_S3_POS 970   /* 舵机3 X: 进 MOVE1/HOLD1 前沿直线角度的位姿 */
 #define LINE_SETTLE_MS         1000    /* 舵机切完位姿后、发 B6 前的沉降延时(可调) */
 #define LINE_POSE_SETTLE_MS    500     /* part6: 摆完 HOLD8 看直线位姿、发 B6 06 前的沉降延时 */
 
 /* ============ HOLD8 看直线位姿 ============ */
 #define HOLD8_S1_POS           3398   /* 舵机1 Y */
 #define HOLD8_S2_POS           1131   /* 舵机2 肘 */
-#define HOLD8_S3_POS           1960   /* 舵机3 X */
+#define HOLD8_S3_POS           1993   /* 舵机3 X */
 
 /* ============ HOLD8 末尾 -> 识别人质位姿 ============ */
 #define HOLD8_HOSTAGE_S1_POS   3399   /* 舵机1 Y(同 HOSTAGE_S1_INIT) */
@@ -217,7 +213,7 @@ static uint8_t stable_cnt = 0;    /* 连续稳定帧计数 */
 
 /* HOLD 动作握手 + 测试模拟标志 */
 volatile uint8_t hold_action_state = HOLD_ACTION_IDLE;
-volatile uint8_t hold_action_id    = 0;    /* 0=无 1=part1(HOLD1) 2=part2(HOLD6) 3=part3(HOLD7) 4=part4(HOLD9) */
+volatile uint8_t hold_action_id    = 0;    /* 0=无 1=part1(HOLD1) 2=part2(HOLD6) 3=part3(HOLD7) 4=part4(HOLD9) 8=part8(HOLD8 后人质位姿) */
 volatile uint8_t sim_ball_stable   = 0;    /* KEY_3 第一次: 球稳定 */
 volatile uint8_t sim_bucket_stable = 0;    /* KEY_3 第二次: 桶稳定 */
 
@@ -410,7 +406,7 @@ void Hold_Action_Update(void)
     if (hold_action_id == 1) {
         switch (step) {
         case 0:
-            WritePosEx(SERVO_X_ID, (int16_t)servo_pos_x, SERVO_SPEED_X, SERVO_ACC);
+            WritePosEx(SERVO_X_ID, (int16_t)936, SERVO_SPEED_X, SERVO_ACC);
             WritePosEx(SERVO_Y_ID, (int16_t)servo_pos_y, SERVO_SPEED_Y, SERVO_ACC);
             WritePosEx(SERVO4_ID, (int16_t)SERVO4_INIT, SERVO4_SPEED, SERVO_ACC);
             WritePosEx(SERVO2_ID, (int16_t)SERVO2_INIT, SERVO2_SPEED, SERVO_ACC);
@@ -434,14 +430,14 @@ void Hold_Action_Update(void)
             break;
         case 3:                                 /* 舵机2到位 -> 舵机3 */
             if (servo_reached(SERVO2_ID, HOLD1_SERVO2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)HOLD1_SERVO3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = HOLD1_SERVO3_POS;
+                WritePosEx(SERVO_X_ID, (int16_t)936, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = 936;
                 t = HAL_GetTick();
                 step = 4;
             }
             break;
         case 4:                                 /* 舵机3到位 -> 舵机4, 发完即完成 */
-            if (servo_reached(SERVO_X_ID, HOLD1_SERVO3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, 936) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO4_ID, (int16_t)HOLD1_SERVO4_POS, SERVO4_SPEED, SERVO_ACC);
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
@@ -714,14 +710,14 @@ void Hold_Action_Update(void)
             break;
         case 28:                                 /* 舵机3 -> 1003(识别直线位姿) */
             if (servo_reached(SERVO2_ID, LINE_RECOG_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)900, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = 900;
+                WritePosEx(SERVO_X_ID, (int16_t)936, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = 936;
                 t = HAL_GetTick();
                 step = 29;
             }
             break;
         case 29:                                 /* 舵机1 -> 3398 */
-            if (servo_reached(SERVO_X_ID, 900) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, 936) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO_Y_ID, (int16_t)LINE_RECOG_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
                 servo_pos_y = LINE_RECOG_S1_POS;
                 t = HAL_GetTick();
@@ -807,30 +803,30 @@ void Hold_Action_Update(void)
                 step = 7;
             }
             break;
-        case 7:                                  /* 舵机1 -> 3399 */
-            WritePosEx(SERVO_Y_ID, (int16_t)LASER_END_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
-            servo_pos_y = LASER_END_S1_POS;
+        case 7:                                  /* 舵机3 -> 1960 (Y轴寻线位姿) */
+            WritePosEx(SERVO_X_ID, (int16_t)HOLD8_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+            servo_pos_x = HOLD8_S3_POS;
             t = HAL_GetTick();
             step = 8;
             break;
-        case 8:                                  /* 舵机2 -> 1581 */
-            if (servo_reached(SERVO_Y_ID, LASER_END_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO2_ID, (int16_t)LASER_END_S2_POS, SERVO2_SPEED, SERVO_ACC);
+        case 8:                                  /* 舵机3到位 -> 舵机2 -> 1131 */
+            if (servo_reached(SERVO_X_ID, HOLD8_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)HOLD8_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 9;
             }
             break;
-        case 9:                                  /* 舵机3 -> 950 */
-            if (servo_reached(SERVO2_ID, LASER_END_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO_X_ID, (int16_t)LASER_END_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-                servo_pos_x = LASER_END_S3_POS;
+        case 9:                                  /* 舵机2到位 -> 舵机1 -> 3398 */
+            if (servo_reached(SERVO2_ID, HOLD8_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+                servo_pos_y = HOLD8_S1_POS;
                 t = HAL_GetTick();
                 step = 10;
             }
             break;
-        case 10:                                 /* 舵机4 -> 2543, 完成 */
-            if (servo_reached(SERVO_X_ID, LASER_END_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
-                WritePosEx(SERVO4_ID, (int16_t)LASER_END_S4_POS, SERVO4_SPEED, SERVO_ACC);
+        case 10:                                 /* 舵机1到位 -> 舵机4 -> 2543, 完成 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO4_ID, (int16_t)SERVO4_INIT, SERVO4_SPEED, SERVO_ACC);
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
             }
@@ -1106,18 +1102,18 @@ void Hold_Action_Update(void)
         }
         return;
     }
-
+#define LINE_ANGLE_HOLD1_S3_POS 936   /* 舵机3 X: 进 MOVE1/HOLD1 前沿直线角度的位姿 */
     /* ---- part7: 看 y 轴直线位姿(舵机3→2→1) -> 沉降 -> 发 B6 06 6B ---- */
     if (hold_action_id == 7) {
         switch (step) {
         case 0:                                  /* 舵机3 -> 950 */
-            WritePosEx(SERVO_X_ID, (int16_t)LINE_RECOG_S3_POS, SERVO_SPEED_X, SERVO_ACC);
-            servo_pos_x = LINE_RECOG_S3_POS;
+            WritePosEx(SERVO_X_ID, (int16_t)936, SERVO_SPEED_X, SERVO_ACC);
+            servo_pos_x = 936 ;
             t = HAL_GetTick();
             step = 1;
             break;
         case 1:                                  /* 舵机3 到位 -> 舵机2 -> 1354 */
-            if (servo_reached(SERVO_X_ID, LINE_RECOG_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+            if (servo_reached(SERVO_X_ID, 936) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 WritePosEx(SERVO2_ID, (int16_t)LINE_RECOG_S2_POS, SERVO2_SPEED, SERVO_ACC);
                 t = HAL_GetTick();
                 step = 2;
@@ -1141,6 +1137,40 @@ void Hold_Action_Update(void)
             if (HAL_GetTick() - t >= LINE_POSE_SETTLE_MS) {
                 Vision_Send_B6(0x06);
                 vision_data.turn_flag = 0;
+                hold_action_state = HOLD_ACTION_DONE;
+                step = 0;
+            }
+            break;
+        }
+        return;
+    }
+
+    /* ---- part8: HOLD8 矫正完成 -> 人质位姿(舵机1->2->3) ---- */
+    if (hold_action_id == 8) {
+        switch (step) {
+        case 0:                                  /* 舵机1 -> 3399 */
+            WritePosEx(SERVO_Y_ID, (int16_t)HOLD8_HOSTAGE_S1_POS, SERVO_SPEED_Y, SERVO_ACC);
+            servo_pos_y = HOLD8_HOSTAGE_S1_POS;
+            t = HAL_GetTick();
+            step = 1;
+            break;
+        case 1:                                  /* 舵机1到位 -> 舵机2 -> 1581 */
+            if (servo_reached(SERVO_Y_ID, HOLD8_HOSTAGE_S1_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO2_ID, (int16_t)HOLD8_HOSTAGE_S2_POS, SERVO2_SPEED, SERVO_ACC);
+                t = HAL_GetTick();
+                step = 2;
+            }
+            break;
+        case 2:                                  /* 舵机2到位 -> 舵机3 -> 950 */
+            if (servo_reached(SERVO2_ID, HOLD8_HOSTAGE_S2_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
+                WritePosEx(SERVO_X_ID, (int16_t)HOLD8_HOSTAGE_S3_POS, SERVO_SPEED_X, SERVO_ACC);
+                servo_pos_x = HOLD8_HOSTAGE_S3_POS;
+                t = HAL_GetTick();
+                step = 3;
+            }
+            break;
+        case 3:                                  /* 舵机3到位 -> 完成 */
+            if (servo_reached(SERVO_X_ID, HOLD8_HOSTAGE_S3_POS) || HAL_GetTick() - t >= SERVO_MAX_WAIT_MS) {
                 hold_action_state = HOLD_ACTION_DONE;
                 step = 0;
             }
